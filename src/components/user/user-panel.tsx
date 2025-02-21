@@ -32,6 +32,33 @@ interface Request {
   timestamp: Date;
 }
 
+interface VersusBet {
+  id: string;
+  gameId: string;
+  team: 1 | 2;
+  amount: number;
+  odds: number;
+  potentialWin: number;
+  timestamp: Date;
+}
+
+interface VersusGame {
+  id: string;
+  teams: {
+    team1: string;
+    team2: string;
+    team1Image: string;
+    team2Image: string;
+    bannerImage: string;
+  };
+  odds: {
+    team1: number;
+    team2: number;
+  };
+  prizePool: number;
+  status: string;
+}
+
 interface Transaction {
   id: string;
   timestamp: Date;
@@ -51,8 +78,10 @@ export function UserPanel() {
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [activeGames, setActiveGames] = useState<VersusGame[]>([]);
+  const [activeBets, setActiveBets] = useState<VersusBet[]>([]);
+  //const [error, setError] = useState<string | null>(null);
+  //const [message, setMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -95,6 +124,36 @@ export function UserPanel() {
         timestamp: doc.data().timestamp.toDate()
       })) as Request[];
       setRequests(reqs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+    });
+    
+     // Listen to active versus games for odds updates
+     const gamesQuery = query(
+      collection(db, 'versusGames'),
+      where('status', '==', 'open')
+    );
+
+    const unsubGames = onSnapshot(gamesQuery, (snapshot) => {
+      const games = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as VersusGame[];
+      setActiveGames(games);
+    });
+
+    // Listen to user's active versus bets
+    const betsQuery = query(
+      collection(db, 'versusBets'),
+      where('userId', '==', user.id),
+      where('status', '==', 'pending')
+    );
+
+    const unsubBets = onSnapshot(betsQuery, (snapshot) => {
+      const bets = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp.toDate()
+      })) as VersusBet[];
+      setActiveBets(bets.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
     });
 
     // Add transaction history listener
@@ -413,6 +472,99 @@ export function UserPanel() {
                 )}
               </div>
             </div>
+
+        {/* Active Versus Bets */}
+        {activeBets.length > 0 && (
+          <div className="rounded-lg bg-gradient-to-br from-blue-50 to-purple-50 p-4 shadow-md md:p-6">
+            <div className="mb-4 flex items-center space-x-2">
+              <Swords className="h-5 w-5 text-blue-600" />
+              <h2 className="text-lg font-semibold text-blue-900 md:text-xl">Your Active Bets</h2>
+            </div>
+            <div className="space-y-3 md:space-y-4">
+              {activeBets.map((bet) => {
+                const game = activeGames.find(g => g.id === bet.gameId);
+                if (!game) return null;
+
+                const teamName = bet.team === 1 ? game.teams.team1 : game.teams.team2;
+                const teamImage = bet.team === 1 ? game.teams.team1Image : game.teams.team2Image;
+                const currentOdds = bet.team === 1 ? game.odds.team1 : game.odds.team2;
+                const currentPotentialWin = Math.floor(bet.amount * currentOdds * 0.9);
+                const oddsChange = currentOdds - bet.odds;
+
+                return (
+                  <div
+                    key={bet.id}
+                    className="relative overflow-hidden rounded-lg bg-white p-3 shadow-sm transition-all hover:shadow-md md:p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Team Image */}
+                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg">
+                        <img
+                          src={teamImage || 'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=200'}
+                          alt={teamName}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            img.src = 'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=200';
+                          }}
+                        />
+                      </div>
+
+                      {/* Bet Details */}
+                      <div className="flex-grow">
+                        <h3 className="font-semibold text-gray-900">{teamName}</h3>
+                        <div className="mt-1 grid grid-cols-2 gap-2 text-sm md:gap-4">
+                          <div>
+                            <p className="text-gray-600">Bet Amount:</p>
+                            <p className="font-medium text-gray-900">{bet.amount} FBT</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Initial Odds:</p>
+                            <p className="font-medium text-gray-900">{bet.odds.toFixed(2)}x</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Current Odds:</p>
+                            <p className="flex items-center font-medium text-gray-900">
+                              {currentOdds.toFixed(2)}x
+                              {oddsChange !== 0 && (
+                                <span className={`ml-1 text-xs ${
+                                  oddsChange > 0 ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  ({oddsChange > 0 ? '+' : ''}{oddsChange.toFixed(2)})
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Potential Win:</p>
+                            <div className="flex items-center">
+                              <p className="font-medium text-gray-900">
+                                {currentPotentialWin.toLocaleString()} FBT
+                              </p>
+                              {currentPotentialWin !== bet.potentialWin && (
+                                <span className={`ml-1 text-xs ${
+                                  currentPotentialWin > bet.potentialWin ? 'text-green-600' : 'text-red-600'
+                                }`}>
+                                  ({currentPotentialWin > bet.potentialWin ? '+' : ''}
+                                  {(currentPotentialWin - bet.potentialWin).toLocaleString()})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Prize Pool */}
+                    <div className="mt-2 text-right text-sm text-gray-600">
+                      Total Prize Pool: {game.prizePool.toLocaleString()} FBT
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
             {/* Requests History */}
             <div className="rounded-lg bg-white p-4 shadow-md md:p-6">
