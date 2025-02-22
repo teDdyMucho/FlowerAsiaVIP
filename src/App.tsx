@@ -150,29 +150,6 @@ function App() {
   } | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
-/*  useEffect(() => {
-    // Initialize admin account if needed
-    const createAdminIfNotExists = async () => {
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("username", "==", "admin"));
-      const querySnapshot = await getDocs(q);
-      
-      if (querySnapshot.empty) {
-        await setDoc(doc(collection(db, "users")), {
-          username: "admin",
-          password: "admin",
-          referralCode: generateReferralCode(),
-          points: 0,
-          cash: 0,
-          isAdmin: true,
-          approved: true,
-          createdAt: new Date()
-        });
-      }
-    };
-
-    createAdminIfNotExists();
-  }, []); */
 
   // Handle online/offline status
   useEffect(() => {
