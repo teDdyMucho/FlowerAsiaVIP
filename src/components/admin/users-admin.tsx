@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase';
 import { UserLogsDialog } from './user-logs-dialog';
 import { SendMessageDialog } from './send-message-dialog';
 import { Trash2, Ban, MessageSquare, Search, DollarSign, CircleDollarSign } from 'lucide-react';
+import React from 'react';
 
 interface Props {
   setError: (error: string) => void;
@@ -507,13 +508,13 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                         onClick={() => updateUserBalance(user.id, 'points')}
                         size="sm"
                       >
-                        Edit Points
+                        FBT
                       </Button>
                       <Button
                         onClick={() => updateUserBalance(user.id, 'cash')}
                         size="sm"
                       >
-                        Edit Cash
+                        Cash
                       </Button>
                       <Button
                         onClick={() => openMessageDialog(user.id, user.username)}
@@ -522,7 +523,14 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                         className="border-blue-500 text-blue-600 hover:bg-blue-50"
                       >
                         <MessageSquare className="mr-1 h-4 w-4" />
-                        Message
+                      </Button>
+                      <Button
+                        onClick={() => deleteUser(user.id, user.username)}
+                        size="sm"
+                        variant="outline"
+                        className="border-red-500 text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="mr-1 h-4 w-4" />
                       </Button>
                       <Button
                         onClick={() => toggleDisableUser(user.id, user.disabled || false)}
@@ -532,15 +540,6 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                       >
                         <Ban className="mr-1 h-4 w-4" />
                         {user.disabled ? 'Enable' : 'Disable'}
-                      </Button>
-                      <Button
-                        onClick={() => deleteUser(user.id, user.username)}
-                        size="sm"
-                        variant="outline"
-                        className="border-red-500 text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="mr-1 h-4 w-4" />
-                        Delete
                       </Button>
                     </div>
                   </td>
