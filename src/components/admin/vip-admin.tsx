@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Crown, Users, Plus, Trash2, Search, X, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
-import { doc, collection, query, where, getDocs, updateDoc, onSnapshot, writeBatch } from 'firebase/firestore';
+import { Crown, Plus, Trash2, Search, X, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { doc, collection, query, where, updateDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import * as Dialog from '@radix-ui/react-dialog';
 import { DEFAULT_VIP_DATA } from '@/store/vip-store';
+import { processUpgradeRequest } from '@/services/vipService';
 
 interface Props {
   setError: (error: string) => void;
@@ -62,7 +63,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
   const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
-    // Listen to VIP users
+    // Listen to VIP users.
     const vipQuery = query(
       collection(db, 'users'),
       where('vipLevel', '>', 0)
@@ -78,22 +79,22 @@ export function VIPAdmin({ setError, setMessage }: Props) {
           referralCode: data.referralCode,
           referrals: {
             ...DEFAULT_VIP_DATA.referrals,
-            ...data.referrals
+            ...data.referrals,
           },
           maxReferrals: {
             ...DEFAULT_VIP_DATA.maxReferrals,
-            ...data.maxReferrals
+            ...data.maxReferrals,
           },
           rewards: {
             ...DEFAULT_VIP_DATA.rewards,
-            ...data.rewards
-          }
+            ...data.rewards,
+          },
         } as VIPUser;
       });
       setVipUsers(users.sort((a, b) => b.vipLevel - a.vipLevel));
     });
 
-    // Listen to VIP upgrade requests
+    // Listen to VIP upgrade requests.
     const requestsQuery = query(
       collection(db, 'requests'),
       where('type', '==', 'vip_upgrade'),
@@ -104,7 +105,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
       const requests = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-        timestamp: doc.data().timestamp.toDate()
+        timestamp: doc.data().timestamp.toDate(),
       })) as VIPRequest[];
       setVipRequests(requests.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
     });
@@ -130,7 +131,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
       const vipKey = `vip${selectedVipLevel}` as keyof VIPUser['referrals'];
       const userRef = doc(db, 'users', selectedUser.id);
       
-      // Get current referrals for this VIP level
+      // Get current referrals for this VIP level.
       const currentReferrals = selectedUser.referrals[vipKey] || [];
       const maxReferrals = selectedUser.maxReferrals[vipKey] || DEFAULT_VIP_DATA.maxReferrals[vipKey];
 
@@ -138,9 +139,8 @@ export function VIPAdmin({ setError, setMessage }: Props) {
         throw new Error(`Maximum slots (${maxReferrals}) reached for VIP${selectedVipLevel}`);
       }
 
-      // Add new slot name to referrals
       await updateDoc(userRef, {
-        [`referrals.${vipKey}`]: [...currentReferrals, newSlotName.trim()]
+        [`referrals.${vipKey}`]: [...currentReferrals, newSlotName.trim()],
       });
 
       setMessage('Slot added successfully');
@@ -166,7 +166,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
       currentReferrals.splice(slotIndex, 1);
 
       await updateDoc(userRef, {
-        [`referrals.${vipKey}`]: currentReferrals
+        [`referrals.${vipKey}`]: currentReferrals,
       });
 
       setMessage('Slot deleted successfully');
@@ -188,7 +188,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
         vipLevel: 1,
         referrals: DEFAULT_VIP_DATA.referrals,
         maxReferrals: DEFAULT_VIP_DATA.maxReferrals,
-        rewards: DEFAULT_VIP_DATA.rewards
+        rewards: DEFAULT_VIP_DATA.rewards,
       });
       setMessage('VIP data reset successfully');
     } catch (error) {
@@ -201,32 +201,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
 
   const handleUpgradeRequest = async (request: VIPRequest, approve: boolean) => {
     try {
-      const batch = writeBatch(db);
-      const requestRef = doc(db, 'requests', request.id);
-      const userRef = doc(db, 'users', request.userId);
-
-      if (approve) {
-        // Calculate new max referrals (add 10 slots for each level below current)
-        const newMaxReferrals = { ...DEFAULT_VIP_DATA.maxReferrals };
-        for (let level = 1; level < request.targetLevel; level++) {
-          const vipKey = `vip${level}` as keyof typeof newMaxReferrals;
-          newMaxReferrals[vipKey] += 10;
-        }
-
-        // Update user's VIP level and max referrals
-        batch.update(userRef, {
-          vipLevel: request.targetLevel,
-          maxReferrals: newMaxReferrals
-        });
-      }
-
-      // Update request status
-      batch.update(requestRef, {
-        status: approve ? 'approved' : 'declined',
-        processedAt: new Date()
-      });
-
-      await batch.commit();
+      await processUpgradeRequest(request, approve);
       setMessage(`VIP upgrade request ${approve ? 'approved' : 'declined'}`);
     } catch (error) {
       setError(`Failed to ${approve ? 'approve' : 'decline'} upgrade request`);
@@ -278,7 +253,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header and Search */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <Crown className="h-8 w-8 text-yellow-500" />
@@ -300,7 +275,6 @@ export function VIPAdmin({ setError, setMessage }: Props) {
       <div className="space-y-4">
         {filteredUsers.map((user) => (
           <div key={user.id} className="overflow-hidden rounded-lg bg-white shadow">
-            {/* User Header */}
             <div className="flex items-center justify-between bg-gray-50 p-4">
               <div 
                 className="flex cursor-pointer items-center space-x-4"
@@ -333,7 +307,6 @@ export function VIPAdmin({ setError, setMessage }: Props) {
               </div>
             </div>
 
-            {/* VIP Slots */}
             {expandedUsers.includes(user.id) && (
               <div className="divide-y divide-gray-100">
                 {Array.from({ length: user.vipLevel }).map((_, index) => {
@@ -341,7 +314,6 @@ export function VIPAdmin({ setError, setMessage }: Props) {
                   const vipKey = `vip${level}` as keyof VIPUser['referrals'];
                   const slots = user.referrals[vipKey] || [];
                   const maxSlots = user.maxReferrals[vipKey] || DEFAULT_VIP_DATA.maxReferrals[vipKey];
-                  const reward = user.rewards[vipKey] || DEFAULT_VIP_DATA.rewards[vipKey];
 
                   return (
                     <div key={level} className="p-4">
@@ -407,7 +379,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
         )}
       </div>
 
-      {/* Add Slot Dialog */}
+      {/* Dialog for Adding a Slot */}
       <Dialog.Root open={isAddingSlot} onOpenChange={setIsAddingSlot}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50" />
@@ -450,7 +422,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
               </div>
             </div>
 
-            <Dialog.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:pointer-events-none">
+            <Dialog.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">
               <X className="h-4 w-4" />
               <span className="sr-only">Close</span>
             </Dialog.Close>

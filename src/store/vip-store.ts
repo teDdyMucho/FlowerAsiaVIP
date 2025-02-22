@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { collection, doc, getDoc, setDoc, updateDoc, addDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { calculateMaxReferrals } from '@/services/vipService';
 
-interface VIPState {
+export interface VIPState {
   vipLevel: number;
   referralCode: string;
   referrals: {
@@ -31,7 +32,6 @@ interface VIPState {
   requestUpgrade: (userId: string, targetLevel: number) => Promise<void>;
 }
 
-// Default VIP data structure
 export const DEFAULT_VIP_DATA = {
   vipLevel: 1,
   referrals: {
@@ -39,35 +39,22 @@ export const DEFAULT_VIP_DATA = {
     vip2: [],
     vip3: [],
     vip4: [],
-    vip5: []
+    vip5: [],
   },
   maxReferrals: {
     vip1: 10,
     vip2: 10,
     vip3: 10,
     vip4: 10,
-    vip5: 10
+    vip5: 10,
   },
   rewards: {
     vip1: 100,
     vip2: 300,
     vip3: 600,
     vip4: 1200,
-    vip5: 2400
-  }
-};
-
-// Function to calculate max referrals based on VIP level
-export const calculateMaxReferrals = (currentLevel: number) => {
-  const maxReferrals = { ...DEFAULT_VIP_DATA.maxReferrals };
-  
-  // For each level below current, add 10 slots
-  for (let level = 1; level < currentLevel; level++) {
-    const vipKey = `vip${level}` as keyof typeof maxReferrals;
-    maxReferrals[vipKey] += 10;
-  }
-
-  return maxReferrals;
+    vip5: 2400,
+  },
 };
 
 export const useVIPStore = create<VIPState>()(
@@ -78,40 +65,40 @@ export const useVIPStore = create<VIPState>()(
         try {
           const userRef = doc(db, 'users', userId);
           const userDoc = await getDoc(userRef);
-          
+
           if (!userDoc.exists()) {
             throw new Error('User not found');
           }
 
           const userData = userDoc.data();
-          const currentLevel = userData.vipLevel || 1;
-          
-          // Initialize VIP data if not exists
+          const currentLevel = userData.vipLevel || DEFAULT_VIP_DATA.vipLevel;
+
+          // If VIP data is missing, initialize the document.
           if (!userData.vipLevel) {
             await updateDoc(userRef, {
               vipLevel: DEFAULT_VIP_DATA.vipLevel,
               referrals: DEFAULT_VIP_DATA.referrals,
               maxReferrals: calculateMaxReferrals(currentLevel),
-              rewards: DEFAULT_VIP_DATA.rewards
+              rewards: DEFAULT_VIP_DATA.rewards,
             });
           }
 
-          // Update local state
+          // Update local state.
           set({
             vipLevel: currentLevel,
             referralCode: userData.referralCode,
             referrals: {
               ...DEFAULT_VIP_DATA.referrals,
-              ...userData.referrals
+              ...userData.referrals,
             },
             maxReferrals: {
               ...calculateMaxReferrals(currentLevel),
-              ...userData.maxReferrals
+              ...userData.maxReferrals,
             },
             rewards: {
               ...DEFAULT_VIP_DATA.rewards,
-              ...userData.rewards
-            }
+              ...userData.rewards,
+            },
           });
         } catch (error) {
           console.error('Failed to initialize VIP:', error);
@@ -122,13 +109,13 @@ export const useVIPStore = create<VIPState>()(
         try {
           const userRef = doc(db, 'users', userId);
           const userDoc = await getDoc(userRef);
-          
+
           if (!userDoc.exists()) {
             throw new Error('User not found');
           }
 
           const userData = userDoc.data();
-          const currentLevel = userData.vipLevel || 1;
+          const currentLevel = userData.vipLevel || DEFAULT_VIP_DATA.vipLevel;
 
           if (targetLevel <= currentLevel) {
             throw new Error('Cannot upgrade to same or lower level');
@@ -138,7 +125,7 @@ export const useVIPStore = create<VIPState>()(
             throw new Error('Invalid VIP level');
           }
 
-          // Create upgrade request
+          // Create an upgrade request.
           await addDoc(collection(db, 'requests'), {
             userId,
             username: userData.username,
@@ -146,14 +133,13 @@ export const useVIPStore = create<VIPState>()(
             currentLevel,
             targetLevel,
             status: 'pending',
-            timestamp: new Date()
+            timestamp: new Date(),
           });
-
         } catch (error) {
           console.error('Failed to request upgrade:', error);
           throw error;
         }
-      }
+      },
     }),
     {
       name: 'vip-storage',
@@ -161,9 +147,8 @@ export const useVIPStore = create<VIPState>()(
         vipLevel: state.vipLevel,
         referralCode: state.referralCode,
         referrals: state.referrals,
-        maxReferrals: state.maxReferrals,
-        rewards: state.rewards
-      })
+        rewards: state.rewards,
+      }),
     }
   )
 );

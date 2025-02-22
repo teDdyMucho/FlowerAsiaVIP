@@ -350,9 +350,9 @@ function App() {
       
       <main className="container mx-auto px-4 py-4 md:py-8">
         <div className="space-y-6 md:space-y-8">
-          {activePanel === 'home' && <UserPanel onBetClick={handleBetClick} />}
+          {activePanel === 'home' && <UserPanel/>}
           {activePanel === 'user' && <HomePanel onBetClick={handleBetClick}/>}
-          {activePanel === 'game' && <GamePanel onBetClick={handleBetClick}/>}
+          {activePanel === 'game' && <GamePanel/>}
           {activePanel === 'admin' && user.isAdmin && <AdminPanel />}
         </div>
       </main>
