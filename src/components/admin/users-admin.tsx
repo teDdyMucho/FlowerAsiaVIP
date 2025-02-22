@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDoc, writeBatch, deleteDoc, increment } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDoc, writeBatch, deleteDoc, increment, or } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserLogsDialog } from './user-logs-dialog';
 import { SendMessageDialog } from './send-message-dialog';
@@ -67,7 +67,7 @@ export function UsersAdmin({ setError, setMessage }: Props) {
     const requestsQuery = query(
       collection(db, 'requests'),
       where('status', '==', 'pending'),
-      where('type', '==', 'withdrawal'||'loan]')
+      where('type', 'in',['loan', 'withdrawal'])
     );
 
     const unsubRequests = onSnapshot(requestsQuery, (snapshot) => {
