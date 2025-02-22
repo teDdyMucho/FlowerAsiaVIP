@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { InboxPanel } from './inbox-panel';
 import { VIPPanel } from './vip-panel';
 import * as Tabs from '@radix-ui/react-tabs';
+import React from 'react';
 
 interface User {
   id: string;
@@ -193,10 +194,10 @@ export function UserPanel() {
     if (!user) return;
 
     // Check if user is paid type
-    if (!user.isPaid) {
+    /*if (!user.isPaid) {
       setError('Cash withdrawal is only available for paid users');
       return;
-    }
+    }*/
 
     const amount = prompt('Enter withdrawal amount:');
     if (!amount) return;
@@ -248,10 +249,10 @@ export function UserPanel() {
     if (!user) return;
 
     // Check if user is paid type
-    if (!user.isPaid) {
+   /* if (!user.isPaid) {
       setError('FBT loan is only available for paid users');
       return;
-    }
+    }*/
 
     const amount = prompt('Enter loan amount (in FBT points):');
     if (!amount) return;
@@ -277,7 +278,7 @@ export function UserPanel() {
         status: 'pending',
         timestamp: new Date()
       });
-      setMessage('Loan request submitted successfully');
+      postMessage('Loan request submitted successfully');
     } catch (error) {
       console.error('Failed to request loan:', error);
       alert('Failed to process loan request');

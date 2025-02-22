@@ -18,6 +18,7 @@ export function AuthPanel() {
     const username = formData.get('username') as string;
     const password = formData.get('password') as string;
     const referralCode = formData.get('referralCode') as string;
+    const referralCodeFriend = formData.get('referralCode') as string;
     const gcashNumber = formData.get('gcashNumber') as string;
 
     try {
@@ -27,7 +28,7 @@ export function AuthPanel() {
         if (!referralCode) {
           throw new Error('Referral code is required to register');
         }
-        await register(username, password, referralCode, gcashNumber);
+        await register(username, password, referralCode, referralCodeFriend, gcashNumber);
         setSuccess('Registration successful! Please wait for admin approval.');
         // Clear form using the ref
         formRef.current?.reset();

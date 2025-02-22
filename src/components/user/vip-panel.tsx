@@ -5,6 +5,7 @@ import { Crown, Users, Plus, Trash2, Copy, Check } from 'lucide-react';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthStore } from '@/store/auth-store';
+import React from 'react';
 
 interface VIPRequest {
   id: string;
@@ -77,7 +78,7 @@ export function VIPPanel() {
     if (isProcessing || !user) return;
 
     const costs = {
-      2: 0,
+      2: 300,
       3: 600,
       4: 1200,
       5: 2400

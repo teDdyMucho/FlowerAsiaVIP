@@ -6,6 +6,7 @@ import { Dice1 as Dice, Binary as Bingo, Swords, Hand as HandRock } from 'lucide
 import { Lucky2Game } from '@/components/games/lucky2/lucky2-game';
 import { BingoGame } from '@/components/games/bingo/bingo-game';
 import { RpsGame } from '@/components/games/rps/rps-game';
+import React from 'react';
 
 interface Props {
   setError: (error: string) => void;

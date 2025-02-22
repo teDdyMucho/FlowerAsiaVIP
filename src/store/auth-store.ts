@@ -10,6 +10,7 @@ interface User {
   points: number;
   cash: number;
   referralCode: string;
+  referralCodeFriend: string;
   isAdmin: boolean;
   approved: boolean;
   gcashNumber?: string;
@@ -19,7 +20,7 @@ interface AuthState {
   user: User | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  register: (username: string, password: string, referralCode: string, gcashNumber?: string) => Promise<void>;
+  register: (username: string, password: string, referralCode: string, referralCodeFriend: string, gcashNumber?: string) => Promise<void>;
   logout: () => void;
   updatePoints?: (userId: string, amount: number) => Promise<void>;
   updateCash?: (userId: string, amount: number) => Promise<void>;
@@ -77,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
               points: userData.points || 0,
               cash: userData.cash || 0,
               referralCode: userData.referralCode,
+              referralCodeFriend: userData.referralCodeFriend,
               isAdmin: userData.isAdmin || false,
               approved: userData.approved,
               gcashNumber: userData.gcashNumber
@@ -150,7 +152,7 @@ export const useAuthStore = create<AuthState>()(
           set({ loading: false });
         }
       },
-      register: async (username: string, password: string, referralCode: string, gcashNumber?: string) => {
+      register: async (username: string, password: string, referralCode: string, referralCodeFriend: string, gcashNumber?: string) => {
         if (!username || !password) {
           throw new Error("Username and password are required");
         }
@@ -187,6 +189,7 @@ export const useAuthStore = create<AuthState>()(
             username,
             password,
             referralCode: generateReferralCode(),
+            referralCodeFriend: referralCodeFriend,
             points: 0,
             cash: 0,
             isAdmin: false,

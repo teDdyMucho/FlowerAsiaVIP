@@ -17,6 +17,7 @@ interface User {
   points: number;
   cash: number;
   referralCode: string;
+  referralCodeFriend: string;
   referrals: string[];
   approved: boolean;
   disabled?: boolean;
@@ -65,7 +66,8 @@ export function UsersAdmin({ setError, setMessage }: Props) {
     // Listen to requests
     const requestsQuery = query(
       collection(db, 'requests'),
-      where('status', '==', 'pending')
+      where('status', '==', 'pending'),
+      where('type', '==', 'withdrawal'||'loan]')
     );
 
     const unsubRequests = onSnapshot(requestsQuery, (snapshot) => {
@@ -130,7 +132,7 @@ export function UsersAdmin({ setError, setMessage }: Props) {
           const referrerData = referrerDoc.data();
           
           batch.update(referrerRef, {
-            points: (referrerData.points || 0) + 50,
+            points: (referrerData.points || 0),
             referrals: [...(referrerData.referrals || []), userData.username]
           });
 
@@ -138,7 +140,7 @@ export function UsersAdmin({ setError, setMessage }: Props) {
           batch.set(transactionRef, {
             userId: userData.referrerId,
             username: referrerData.username,
-            amount: 50,
+            amount: 0,
             type: 'referral_bonus',
             description: `Referral bonus for ${userData.username}`,
             timestamp: new Date()
@@ -417,6 +419,9 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                   GCash
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Refer By:
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -447,6 +452,9 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     {user.gcashNumber || 'Not set'}
+                  </td>
+                  <td className="whitespace-nowrap px-6 py-4">
+                    {user.referralCodeFriend || 'Not set'}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="flex space-x-2">
