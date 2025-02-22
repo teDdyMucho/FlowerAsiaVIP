@@ -14,6 +14,7 @@ import { MessageNotification } from '@/components/notifications/message-notifica
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import React from 'react';
 
 type ActivePanel = 'user' | 'home' | 'game' | 'admin' | null;
 

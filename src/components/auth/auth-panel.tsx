@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { Button } from '@/components/ui/button';
 import { Flower, AlertCircle } from 'lucide-react';
+import React from 'react';
 
 export function AuthPanel() {
   const { login, register, loading } = useAuthStore();

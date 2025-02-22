@@ -176,7 +176,8 @@ export const useAuthStore = create<AuthState>()(
         set({ loading: true });
         try {
           username = username.toLowerCase();
-          
+
+          /// Search for Same user
           const usersRef = collection(db, "users");
           const q = query(usersRef, where("username", "==", username));
           const querySnapshot = await getDocs(q);
@@ -235,3 +236,7 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+function useState(arg0: string): [any, any] {
+  throw new Error('Function not implemented.');
+}

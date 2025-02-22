@@ -123,7 +123,7 @@ export function UsersAdmin({ setError, setMessage }: Props) {
       const batch = writeBatch(db);
       
       batch.update(userRef, { approved: true });
-
+      /*
       if (userData.referralPending && userData.referrerId) {
         const referrerRef = doc(db, 'users', userData.referrerId);
         const referrerDoc = await getDoc(referrerRef);
@@ -148,7 +148,7 @@ export function UsersAdmin({ setError, setMessage }: Props) {
 
           batch.update(userRef, { referralPending: false });
         }
-      }
+      }*/
 
       await batch.commit();
       setMessage('User approved successfully');
