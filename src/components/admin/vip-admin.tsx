@@ -185,7 +185,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
     try {
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, {
-        vipLevel: 1,
+        vipLevel: 0,
         referrals: DEFAULT_VIP_DATA.referrals,
         maxReferrals: DEFAULT_VIP_DATA.maxReferrals,
         rewards: DEFAULT_VIP_DATA.rewards,

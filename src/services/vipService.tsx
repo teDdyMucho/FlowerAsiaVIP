@@ -16,6 +16,11 @@ export const calculateMaxReferrals = (currentLevel: number) => {
   */
 
           let newMaxReferrals;
+          if (currentLevel=== 1) {
+            newMaxReferrals = {
+              vip1: 10,
+            };
+          }
           if (currentLevel=== 2) {
             newMaxReferrals = {
               vip1: 20,

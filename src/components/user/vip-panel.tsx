@@ -32,7 +32,7 @@ export function VIPPanel() {
       if (doc.exists()) {
         const data = doc.data();
         setVipData({
-          vipLevel: data.vipLevel || 1,
+          vipLevel: data.vipLevel || 0,
           referrals: data.referrals || {},
           maxReferrals: data.maxReferrals || {},
           rewards: data.rewards || {}
@@ -78,6 +78,7 @@ export function VIPPanel() {
     if (isProcessing || !user) return;
 
     const costs = {
+      1: 100,
       2: 300,
       3: 600,
       4: 1200,

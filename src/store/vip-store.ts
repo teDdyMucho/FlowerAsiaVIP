@@ -33,7 +33,7 @@ export interface VIPState {
 }
 
 export const DEFAULT_VIP_DATA = {
-  vipLevel: 1,
+  vipLevel: 0,
   referrals: {
     vip1: [],
     vip2: [],
