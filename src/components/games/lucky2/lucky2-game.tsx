@@ -125,7 +125,7 @@ export function Lucky2Game({ gameStatus, jackpot, setError, setMessage }: Props)
     const num2 = parseInt(numbers.num2);
     const amount = parseInt(betAmount);
 
-    if (!num1 || !num2 || num1 === num2 || num1 < 1 || num1 > 60 || num2 < 1 || num2 > 60) {
+    if (!num1 || !num2 || num1 === num2 || num1 < 1 || num1 > 30 || num2 < 31 || num2 > 60) {
       setError('Please pick two different numbers between 1 and 60');
       return;
     }
@@ -209,7 +209,8 @@ export function Lucky2Game({ gameStatus, jackpot, setError, setMessage }: Props)
       <div className="mb-4 rounded-md bg-gray-50 p-3 md:mb-6 md:p-4">
         <h3 className="mb-2 font-semibold">Game Rules:</h3>
         <ul className="list-inside list-disc space-y-1 text-xs text-gray-600 md:text-sm">
-          <li>Pick 2 different numbers between 1 and 60</li>
+          <li>Pick 2 different numbers</li>
+          <li>The first number 1-30 and the second 31-60</li>
           <li>Bet between 10 and 50 points</li>
           <li>Match both numbers: Win the Jackpot Prize in Cash!</li>
           <li>Match one number: Win {prizeMultiplier}x your bet in Points</li>
@@ -255,12 +256,12 @@ export function Lucky2Game({ gameStatus, jackpot, setError, setMessage }: Props)
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                First Number (1-60)
+                First Number (1-30)
               </label>
               <input
                 type="number"
                 min="1"
-                max="60"
+                max="30"
                 value={numbers.num1}
                 onChange={(e) => setNumbers(prev => ({ ...prev, num1: e.target.value }))}
                 required
@@ -269,11 +270,11 @@ export function Lucky2Game({ gameStatus, jackpot, setError, setMessage }: Props)
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Second Number (1-60)
+                Second Number (31-60)
               </label>
               <input
                 type="number"
-                min="1"
+                min="31"
                 max="60"
                 value={numbers.num2}
                 onChange={(e) => setNumbers(prev => ({ ...prev, num2: e.target.value }))}

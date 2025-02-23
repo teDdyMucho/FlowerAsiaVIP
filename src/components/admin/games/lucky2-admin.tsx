@@ -264,8 +264,8 @@ export function Lucky2Admin({ setError, setMessage }: Props) {
     const num1 = parseInt(winningNumbers.num1);
     const num2 = parseInt(winningNumbers.num2);
 
-    if (!num1 || !num2 || num1 === num2 || num1 < 1 || num1 > 60 || num2 < 1 || num2 > 60) {
-      setError('Please enter two different valid numbers (1-60)');
+    if (!num1 || !num2 || num1 === num2 || num1 < 1 || num1 > 30 || num2 < 31 || num2 > 60) {
+      setError('Please enter two different valid numbers (1-30 on the 1st) and (31-60 on the 2nd)');
       return;
     }
 
@@ -433,12 +433,12 @@ export function Lucky2Admin({ setError, setMessage }: Props) {
             <div className="grid grid-cols-2 gap-2 md:gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  First Number (1-60)
+                  First Number (1-30)
                 </label>
                 <input
                   type="number"
                   min="1"
-                  max="60"
+                  max="30"
                   value={winningNumbers.num1}
                   onChange={(e) => setWinningNumbers(prev => ({ ...prev, num1: e.target.value }))}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm md:text-base"
@@ -446,11 +446,11 @@ export function Lucky2Admin({ setError, setMessage }: Props) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Second Number (1-60)
+                  Second Number (31-60)
                 </label>
                 <input
                   type="number"
-                  min="1"
+                  min="31"
                   max="60"
                   value={winningNumbers.num2}
                   onChange={(e) => setWinningNumbers(prev => ({ ...prev, num2: e.target.value }))}
