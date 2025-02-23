@@ -1,5 +1,16 @@
 import { useState, useEffect } from 'react';
-import { doc, updateDoc, writeBatch, increment, addDoc, collection } from 'firebase/firestore';
+import { 
+  doc, 
+  updateDoc, 
+  writeBatch, 
+  increment, 
+  addDoc, 
+  getDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs 
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Timer, Lock, Unlock } from 'lucide-react';
@@ -19,7 +30,7 @@ export function GameCard({ game, setError, setMessage }: Props) {
   } | null>(null);
   const [timeLeft, setTimeLeft] = useState<string>('');
 
-  // Add timer effect
+  // Timer effect to update remaining time and auto-disable betting when time is up
   useEffect(() => {
     if (!game.endTime) return;
 
@@ -29,7 +40,7 @@ export function GameCard({ game, setError, setMessage }: Props) {
       const diff = end.getTime() - now.getTime();
 
       if (diff <= 0) {
-        // Auto disable betting when time is up
+        // Auto disable betting when time is up if not already disabled
         if (game.bettingEnabled !== false) {
           updateDoc(doc(db, 'versusGames', game.id), {
             bettingEnabled: false
@@ -49,15 +60,13 @@ export function GameCard({ game, setError, setMessage }: Props) {
       return true;
     };
 
-    // Initial check
     const shouldContinue = checkTime();
     if (!shouldContinue) return;
-
-    // Set up interval
     const interval = setInterval(checkTime, 1000);
     return () => clearInterval(interval);
   }, [game.endTime, game.id, game.bettingEnabled]);
 
+  // Handler to update an image URL
   const handleImageEdit = async (url: string) => {
     if (!editingImage) return;
 
@@ -68,6 +77,7 @@ export function GameCard({ game, setError, setMessage }: Props) {
       batch.update(gameRef, {
         teams: {
           ...game.teams,
+          // Dynamically update the appropriate image field
           [`${editingImage.type}Image`]: url
         }
       });
@@ -80,6 +90,7 @@ export function GameCard({ game, setError, setMessage }: Props) {
     }
   };
 
+  // Toggle bettingEnabled flag for the game
   const toggleBetting = async () => {
     try {
       await updateDoc(doc(db, 'versusGames', game.id), {
@@ -92,6 +103,7 @@ export function GameCard({ game, setError, setMessage }: Props) {
     }
   };
 
+  // Update the game duration by prompting for a new duration in hours
   const updateGameDuration = async () => {
     const hours = prompt('Enter new duration in hours:');
     if (!hours) return;
@@ -103,13 +115,12 @@ export function GameCard({ game, setError, setMessage }: Props) {
     }
 
     try {
-      // Create a new Date object for the end time
+      // Set a new end time based on the duration
       const endTime = new Date();
-      // Add the duration in hours
-      endTime.setTime(endTime.getTime() + (duration * 60 * 60 * 1000));
+      endTime.setTime(endTime.getTime() + duration * 60 * 60 * 1000);
 
       await updateDoc(doc(db, 'versusGames', game.id), {
-        endTime: endTime.toISOString() // Store as ISO string for consistency
+        endTime: endTime.toISOString()
       });
       setMessage(`Game duration updated to ${duration} hours`);
     } catch (err) {
@@ -118,6 +129,7 @@ export function GameCard({ game, setError, setMessage }: Props) {
     }
   };
 
+  // Set initial funds for the game by incrementing the prize pool
   const setInitialFunds = async () => {
     const amount = prompt('Enter initial prize pool amount:');
     if (!amount) return;
@@ -152,6 +164,7 @@ export function GameCard({ game, setError, setMessage }: Props) {
     }
   };
 
+  // End the game by processing bets and awarding winners
   const endGame = async () => {
     const winner = prompt('Enter winning team (1 or 2):');
     if (!winner || (winner !== '1' && winner !== '2')) {
@@ -162,17 +175,90 @@ export function GameCard({ game, setError, setMessage }: Props) {
     try {
       const batch = writeBatch(db);
       const gameRef = doc(db, 'versusGames', game.id);
+      const gameDoc = await getDoc(gameRef);
 
+      if (!gameDoc.exists()) {
+        setError('Game not found');
+        return;
+      }
+
+      const gameData = gameDoc.data() as VersusGame;
+      const winningTeam = parseInt(winner) as 1 | 2;
+      const winningOdds = winningTeam === 1 ? gameData.odds.team1 : gameData.odds.team2;
+
+      // Retrieve all pending bets for this game
+      const betsQuery = query(
+        collection(db, 'versusBets'),
+        where('gameId', '==', game.id),
+        where('status', '==', 'pending')
+      );
+      const betsSnapshot = await getDocs(betsQuery);
+
+      const totalBets = gameData.prizePool;
+      const houseFee = Math.floor(totalBets * 0.1);
+      let totalWinnings = 0;
+
+      // Process each bet: update winners and losers accordingly
+      for (const betDoc of betsSnapshot.docs) {
+        const bet = betDoc.data();
+        const betRef = doc(db, 'versusBets', betDoc.id);
+
+        if (Number(bet.team) === winningTeam) {
+          const winnings = Math.floor(bet.amount * winningOdds * 0.9);
+          totalWinnings += winnings;
+
+          const userRef = doc(db, 'users', bet.userId);
+          batch.update(userRef, {
+            points: increment(winnings)
+          });
+
+          const winTransactionRef = doc(collection(db, 'transactions'));
+          batch.set(winTransactionRef, {
+            userId: bet.userId,
+            username: bet.username,
+            amount: winnings,
+            type: 'versus_win',
+            description: `Won versus bet on ${winningTeam === 1 ? gameData.teams.team1 : gameData.teams.team2} (after 10% fee)`,
+            timestamp: new Date()
+          });
+
+          batch.update(betRef, {
+            status: 'won',
+            winnings,
+            completedAt: new Date()
+          });
+        } else {
+          batch.update(betRef, {
+            status: 'lost',
+            winnings: 0,
+            completedAt: new Date()
+          });
+        }
+      }
+
+      // Record the house profit as a transaction
+      const profitRef = doc(collection(db, 'transactions'));
+      batch.set(profitRef, {
+        type: 'admin_profit',
+        gameType: 'versus',
+        amount: houseFee,
+        description: 'Versus game house fee (10% of total bets)',
+        timestamp: new Date()
+      });
+
+      // Update the game document to mark it as completed
       batch.update(gameRef, {
         status: 'completed',
-        winner: winner === '1' ? game.teams.team1 : game.teams.team2,
-        endedAt: new Date()
+        winner: winner === '1' ? gameData.teams.team1 : gameData.teams.team2,
+        endedAt: new Date(),
+        totalWinnings,
+        houseFee
       });
 
       await batch.commit();
-      setMessage('Game ended successfully');
+      setMessage(`Game ended - Winners received ${totalWinnings} CASH (House fee: ${houseFee})`);
     } catch (err) {
-      setError('Failed to end game');
+      setError('Failed to end versus game');
       console.error(err);
     }
   };
@@ -200,7 +286,6 @@ export function GameCard({ game, setError, setMessage }: Props) {
 
       {/* Teams Grid */}
       <div className="mb-6 grid grid-cols-2 gap-8">
-        {/* Team 1 */}
         <div className="space-y-4">
           <div className="relative aspect-square overflow-hidden rounded-lg bg-gradient-to-br from-blue-100 to-blue-50">
             <img
@@ -219,7 +304,6 @@ export function GameCard({ game, setError, setMessage }: Props) {
           </div>
         </div>
 
-        {/* Team 2 */}
         <div className="space-y-4">
           <div className="relative aspect-square overflow-hidden rounded-lg bg-gradient-to-br from-purple-100 to-purple-50">
             <img
@@ -323,8 +407,11 @@ export function GameCard({ game, setError, setMessage }: Props) {
           currentUrl={editingImage.currentUrl}
           onSave={handleImageEdit}
           title={`Edit ${
-            editingImage.type === 'banner' ? 'Banner' :
-            editingImage.type === 'team1' ? 'Team 1' : 'Team 2'
+            editingImage.type === 'banner'
+              ? 'Banner'
+              : editingImage.type === 'team1'
+              ? 'Team 1'
+              : 'Team 2'
           } Image`}
         />
       )}

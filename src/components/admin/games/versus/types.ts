@@ -10,6 +10,7 @@ export interface TeamBet {
 }
 
 export interface VersusGame {
+  
   id: string;
   status: string;
   teams: {
@@ -23,6 +24,7 @@ export interface VersusGame {
     team1: number;
     team2: number;
   };
+  prizePool: number;
   bets: TeamBet[];
   totalBets: number;
   createdAt: Date;
