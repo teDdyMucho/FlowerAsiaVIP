@@ -48,7 +48,7 @@ export function AuthPanel() {
             <span className="inline-block animate-spin duration-[3000ms]">
               <Flower className="inline-block h-8 w-8 text-rose-500" />
             </span>
-            WER BET
+            WER ASIA
           </h1>
           <p className="mt-2 text-center text-sm text-gray-600">
             {isLogin ? 'Welcome back!' : 'Join our community'}

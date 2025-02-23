@@ -75,7 +75,7 @@ export function HomePanel({ onBetClick }: Props) {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold">Welcome to Flower Bet</h1>
+      <h1 className="text-3xl font-bold">Welcome to Flower Asia</h1>
       
       {/* Quick Access Game Buttons - Only shown when active */}
       <div className="grid gap-4 md:grid-cols-3">

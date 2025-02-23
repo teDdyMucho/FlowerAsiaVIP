@@ -31,7 +31,7 @@ export function Header() {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-bold">FLOWER BET</h1>
+            <h1 className="text-xl font-bold">FLOWER ASIA</h1>
             {user && (
               <span className="hidden text-sm text-gray-600 md:block">
                 Welcome, {user.username}
