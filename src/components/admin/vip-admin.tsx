@@ -221,14 +221,14 @@ export function VIPAdmin({ setError, setMessage }: Props) {
       {/* VIP Upgrade Requests */}
       {vipRequests.length > 0 && (
         <div className="rounded-lg bg-white p-6 shadow-lg">
-          <h2 className="mb-4 text-lg font-semibold">Pending VIP Upgrades</h2>
+          <h2 className="mb-4 text-lg font-semibold">Pending Banker Upgrades</h2>
           <div className="space-y-4">
             {vipRequests.map((request) => (
               <div key={request.id} className="flex items-center justify-between rounded-lg border bg-gray-50 p-4">
                 <div>
                   <p className="font-medium">{request.username}</p>
                   <p className="text-sm text-gray-600">
-                    Requesting upgrade from VIP{request.currentLevel} to VIP{request.targetLevel}
+                    Requesting upgrade from Banker {request.currentLevel} to Banker {request.targetLevel}
                   </p>
                   <p className="text-xs text-gray-500">{request.timestamp.toLocaleString()}</p>
                 </div>
@@ -257,7 +257,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <Crown className="h-8 w-8 text-yellow-500" />
-          <h2 className="text-2xl font-bold">VIP Members</h2>
+          <h2 className="text-2xl font-bold">Banker Members</h2>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -284,7 +284,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
                 <div>
                   <h3 className="font-medium">{user.username}</h3>
                   <p className="text-sm text-gray-500">
-                    VIP Level {user.vipLevel} • Code: {user.referralCode}
+                    Banker Level {user.vipLevel} • Code: {user.referralCode}
                   </p>
                 </div>
               </div>
@@ -297,7 +297,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
                   className="border-red-500 text-red-600 hover:bg-red-50"
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Reset VIP
+                  Reset Banker Level
                 </Button>
                 {expandedUsers.includes(user.id) ? (
                   <ChevronUp className="h-5 w-5 text-gray-400" />
@@ -374,7 +374,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
 
         {filteredUsers.length === 0 && (
           <div className="rounded-lg bg-white p-8 text-center shadow">
-            <p className="text-gray-500">No VIP members found</p>
+            <p className="text-gray-500">No Banker members found</p>
           </div>
         )}
       </div>
@@ -385,7 +385,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
           <Dialog.Overlay className="fixed inset-0 bg-black/50" />
           <Dialog.Content className="fixed left-[50%] top-[50%] w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg">
             <Dialog.Title className="mb-4 text-xl font-semibold">
-              Add VIP{selectedVipLevel} Slot
+              Add Banker{selectedVipLevel} Slot
             </Dialog.Title>
 
             <div className="space-y-4">
