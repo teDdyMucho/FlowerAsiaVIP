@@ -85,7 +85,7 @@ export function VIPPanel() {
       5: 2400
     };
 
-    if (!confirm(`Request upgrade to VIP${targetLevel}? Cost: ${costs[targetLevel as keyof typeof costs]} PHP`)) {
+    if (!confirm(`Request upgrade to be a BANKER${targetLevel}? Cost: ${costs[targetLevel as keyof typeof costs]} PHP`)) {
       return;
     }
 
@@ -113,7 +113,7 @@ export function VIPPanel() {
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Crown className="h-6 w-6 text-yellow-500" />
-            <h2 className="text-xl font-bold">VIP {level}</h2>
+            <h2 className="text-xl font-bold">Banker Level {level}</h2>
           </div>
           <div className="flex items-center space-x-2">
             <Users className="h-5 w-5 text-blue-500" />
@@ -130,9 +130,6 @@ export function VIPPanel() {
             </p>
             <p className="text-sm font-medium text-gray-700">
               Total FBT: {referrals.length * reward}
-            </p>
-            <p className="text-sm font-medium text-gray-700">
-              Total PHP: {referrals.length * reward}
             </p>
           </div>
         </div>
@@ -217,7 +214,7 @@ export function VIPPanel() {
             className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white hover:from-yellow-600 hover:to-amber-600"
           >
             <Crown className="mr-2 h-4 w-4" />
-            Request VIP {vipData.vipLevel + 1} Upgrade
+            Request BANKER Level {vipData.vipLevel + 1} Upgrade
           </Button>
         </div>
       )}
