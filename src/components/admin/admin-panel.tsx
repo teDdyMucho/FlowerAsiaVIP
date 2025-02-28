@@ -84,10 +84,10 @@ export function AdminPanel() {
     },
     {
       id: 'vip',
-      label: 'VIP System',
+      label: 'Banker System',
       icon: Crown,
       color: 'from-amber-500 to-yellow-500',
-      description: 'Manage VIP members and slots'
+      description: 'Manage Banker members and slots'
     }
   ] as const;
 

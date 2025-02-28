@@ -329,7 +329,7 @@ function App() {
         <div className="space-y-6 md:space-y-8">
           {activePanel === 'home' && <UserPanel/>}
           {activePanel === 'user' && <HomePanel onBetClick={handleBetClick}/>}
-          {activePanel === 'game' && <GamePanel/>}
+          {activePanel === 'game' && <GamePanel onBetClick={handleBetClick}/>}
           {activePanel === 'admin' && user.isAdmin && <AdminPanel />}
         </div>
       </main>
