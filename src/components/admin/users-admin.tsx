@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDoc, writeBatch, deleteDoc, increment, or } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDoc, writeBatch, deleteDoc, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserLogsDialog } from './user-logs-dialog';
 import { SendMessageDialog } from './send-message-dialog';
 import { Trash2, Ban, MessageSquare, Search, DollarSign, CircleDollarSign } from 'lucide-react';
-import React from 'react';
 
 interface Props {
   setError: (error: string) => void;
@@ -90,10 +89,14 @@ export function UsersAdmin({ setError, setMessage }: Props) {
     if (!searchQuery.trim()) {
       setFilteredUsers(users);
     } else {
-      const query = searchQuery.toLowerCase();
+      /*const query = searchQuery.toLowerCase();
       const filtered = users.filter(user => 
         user.username.toLowerCase().includes(query)
-      );
+      );*/
+       const filtered = users.filter(user => 
+        user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.referralCode.toLowerCase().includes(searchQuery.toLowerCase())
+      )
       setFilteredUsers(filtered);
     }
   }, [searchQuery, users]);
@@ -423,7 +426,7 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                   Refer By:
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Status
+                  Ref.Cd
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   Type
@@ -444,6 +447,13 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                 >
                   <td className="whitespace-nowrap px-6 py-4">
                     {user.username}
+                    <div className="flex space-x-2">
+                      {user.disabled && (
+                        <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-800">
+                          Disabled
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     {user.points}
@@ -458,22 +468,7 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                     {user.referralCodeFriend || 'Not set'}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
-                    <div className="flex space-x-2">
-                      {user.approved ? (
-                        <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">
-                          Approved
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-800">
-                          Pending
-                        </span>
-                      )}
-                      {user.disabled && (
-                        <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-800">
-                          Disabled
-                        </span>
-                      )}
-                    </div>
+                    {user.referralCode || 'Not set'}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <button
