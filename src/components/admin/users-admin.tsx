@@ -41,16 +41,14 @@ export function UsersAdmin({ setError, setMessage }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<{ id: string; username: string } | null>(null);
   const [isLogsOpen, setIsLogsOpen] = useState(false);
-  const [messageDialogState, setMessageDialogState] = useState<{
-    open: boolean;
-    userId: string;
-    username: string;
-  }>({
+  const [messageDialogState, setMessageDialogState] = useState<{ open: boolean; userId: string; username: string }>({
     open: false,
     userId: '',
     username: ''
   });
   const [requests, setRequests] = useState<Request[]>([]);
+  // New state: toggle to filter users by pending approval (i.e. approved === false)
+  const [showPendingApprovalOnly, setShowPendingApprovalOnly] = useState(false);
 
   useEffect(() => {
     // Listen to users
@@ -63,11 +61,11 @@ export function UsersAdmin({ setError, setMessage }: Props) {
       setFilteredUsers(usersList);
     });
 
-    // Listen to requests
+    // Listen to requests (loan/withdrawal pending)
     const requestsQuery = query(
       collection(db, 'requests'),
       where('status', '==', 'pending'),
-      where('type', 'in',['loan', 'withdrawal'])
+      where('type', 'in', ['loan', 'withdrawal'])
     );
 
     const unsubRequests = onSnapshot(requestsQuery, (snapshot) => {
@@ -86,20 +84,30 @@ export function UsersAdmin({ setError, setMessage }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredUsers(users);
-    } else {
-      /*const query = searchQuery.toLowerCase();
-      const filtered = users.filter(user => 
-        user.username.toLowerCase().includes(query)
-      );*/
-       const filtered = users.filter(user => 
-        user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.referralCode.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-      setFilteredUsers(filtered);
+    let updatedUsers = [...users];
+
+    if (searchQuery.trim()) {
+      const queryText = searchQuery.trim().toLowerCase();
+      updatedUsers = updatedUsers.filter(user => {
+        const usernameMatch = user.username.toLowerCase().includes(queryText);
+        const referralCodeMatch =
+          typeof user.referralCode === 'string' &&
+          user.referralCode.toLowerCase().includes(queryText);
+        const referralCodeFriendMatch =
+          typeof user.referralCodeFriend === 'string' &&
+          user.referralCodeFriend.toLowerCase().includes(queryText);
+        
+        return usernameMatch || referralCodeMatch || referralCodeFriendMatch;
+      });
     }
-  }, [searchQuery, users]);
+
+    // If toggled, filter only users pending approval.
+    if (showPendingApprovalOnly) {
+      updatedUsers = updatedUsers.filter(user => !user.approved);
+    }
+
+    setFilteredUsers(updatedUsers);
+  }, [searchQuery, users, showPendingApprovalOnly]);
 
   const toggleUserType = async (userId: string, currentIsPaid: boolean) => {
     try {
@@ -122,38 +130,8 @@ export function UsersAdmin({ setError, setMessage }: Props) {
         throw new Error('User not found');
       }
 
-      const userData = userDoc.data();
-      
       const batch = writeBatch(db);
-      
       batch.update(userRef, { approved: true });
-      /*
-      if (userData.referralPending && userData.referrerId) {
-        const referrerRef = doc(db, 'users', userData.referrerId);
-        const referrerDoc = await getDoc(referrerRef);
-        
-        if (referrerDoc.exists()) {
-          const referrerData = referrerDoc.data();
-          
-          batch.update(referrerRef, {
-            points: (referrerData.points || 0),
-            referrals: [...(referrerData.referrals || []), userData.username]
-          });
-
-          const transactionRef = doc(collection(db, 'transactions'));
-          batch.set(transactionRef, {
-            userId: userData.referrerId,
-            username: referrerData.username,
-            amount: 0,
-            type: 'referral_bonus',
-            description: `Referral bonus for ${userData.username}`,
-            timestamp: new Date()
-          });
-
-          batch.update(userRef, { referralPending: false });
-        }
-      }*/
-
       await batch.commit();
       setMessage('User approved successfully');
     } catch (err) {
@@ -272,13 +250,11 @@ export function UsersAdmin({ setError, setMessage }: Props) {
 
       if (approve) {
         if (request.type === 'withdrawal') {
-          // For withdrawals, cash was already deducted when request was made
           batch.update(requestRef, {
             status: 'approved',
             processedAt: new Date()
           });
         } else if (request.type === 'loan') {
-          // For loans, add FBT points
           batch.update(userRef, {
             points: increment(request.amount)
           });
@@ -288,7 +264,6 @@ export function UsersAdmin({ setError, setMessage }: Props) {
             processedAt: new Date()
           });
 
-          // Add transaction record
           const transactionRef = doc(collection(db, 'transactions'));
           batch.set(transactionRef, {
             userId: request.userId,
@@ -305,12 +280,10 @@ export function UsersAdmin({ setError, setMessage }: Props) {
         }
       } else {
         if (request.type === 'withdrawal') {
-          // Return the cash to user's balance
           batch.update(userRef, {
             cash: increment(request.amount)
           });
 
-          // Add transaction record
           const transactionRef = doc(collection(db, 'transactions'));
           batch.set(transactionRef, {
             userId: request.userId,
@@ -361,7 +334,10 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                   <div>
                     <p className="font-medium">{request.username}</p>
                     <p className="text-sm text-gray-600">
-                      {request.type === 'withdrawal' ? 'Cash Withdrawal' : 'FBT Loan'}: {request.amount} {request.type === 'withdrawal' ? 'Cash' : 'FBT'}
+                      {request.type === 'withdrawal'
+                        ? 'Cash Withdrawal'
+                        : 'FBT Loan'}: {request.amount}{' '}
+                      {request.type === 'withdrawal' ? 'Cash' : 'FBT'}
                     </p>
                     <p className="text-xs text-gray-500">
                       {request.timestamp.toLocaleString()}
@@ -393,16 +369,23 @@ export function UsersAdmin({ setError, setMessage }: Props) {
       <div className="rounded-lg bg-white p-6 shadow-md">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Users Management</h2>
-          
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by username..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="rounded-md border border-gray-300 pl-9 pr-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by username..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="rounded-md border border-gray-300 pl-9 pr-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <button
+              onClick={() => setShowPendingApprovalOnly(prev => !prev)}
+              className="rounded-md bg-gray-200 px-3 py-1 text-sm"
+            >
+              {showPendingApprovalOnly ? 'Show All Users' : 'Show Pending Approval'}
+            </button>
           </div>
         </div>
 
@@ -455,12 +438,8 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                       )}
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4">
-                    {user.points}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4">
-                    {user.cash || 0}
-                  </td>
+                  <td className="whitespace-nowrap px-6 py-4">{user.points}</td>
+                  <td className="whitespace-nowrap px-6 py-4">{user.cash || 0}</td>
                   <td className="whitespace-nowrap px-6 py-4">
                     {user.gcashNumber || 'Not set'}
                   </td>
@@ -489,7 +468,7 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                     </button>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
-                    <div className="flex space-x-2" onClick={e => e.stopPropagation()}>
+                    <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
                       {!user.approved && (
                         <Button
                           onClick={() => approveUser(user.id)}
@@ -499,16 +478,10 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                           Approve
                         </Button>
                       )}
-                      <Button
-                        onClick={() => updateUserBalance(user.id, 'points')}
-                        size="sm"
-                      >
+                      <Button onClick={() => updateUserBalance(user.id, 'points')} size="sm">
                         FBT
                       </Button>
-                      <Button
-                        onClick={() => updateUserBalance(user.id, 'cash')}
-                        size="sm"
-                      >
+                      <Button onClick={() => updateUserBalance(user.id, 'cash')} size="sm">
                         Cash
                       </Button>
                       <Button
@@ -531,7 +504,11 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                         onClick={() => toggleDisableUser(user.id, user.disabled || false)}
                         size="sm"
                         variant="outline"
-                        className={user.disabled ? 'border-green-500 text-green-600' : 'border-red-500 text-red-600'}
+                        className={
+                          user.disabled
+                            ? 'border-green-500 text-green-600'
+                            : 'border-red-500 text-red-600'
+                        }
                       >
                         <Ban className="mr-1 h-4 w-4" />
                         {user.disabled ? 'Enable' : 'Disable'}
@@ -558,7 +535,7 @@ export function UsersAdmin({ setError, setMessage }: Props) {
         userId={messageDialogState.userId}
         username={messageDialogState.username}
         open={messageDialogState.open}
-        onOpenChange={(open) => setMessageDialogState(prev => ({ ...prev, open }))}
+        onOpenChange={(open) => setMessageDialogState((prev) => ({ ...prev, open }))}
         onMessageSent={() => {
           setMessage('Message sent successfully');
         }}
