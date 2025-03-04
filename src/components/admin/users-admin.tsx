@@ -1,6 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { collection, query, where, onSnapshot, doc, updateDoc, addDoc, getDoc, writeBatch, deleteDoc, increment } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  updateDoc,
+  addDoc,
+  getDoc,
+  getDocs,
+  writeBatch,
+  deleteDoc,
+  increment,
+  arrayUnion
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { UserLogsDialog } from './user-logs-dialog';
 import { SendMessageDialog } from './send-message-dialog';
@@ -47,7 +61,6 @@ export function UsersAdmin({ setError, setMessage }: Props) {
     username: ''
   });
   const [requests, setRequests] = useState<Request[]>([]);
-  // New state: toggle to filter users by pending approval (i.e. approved === false)
   const [showPendingApprovalOnly, setShowPendingApprovalOnly] = useState(false);
 
   useEffect(() => {
@@ -125,15 +138,63 @@ export function UsersAdmin({ setError, setMessage }: Props) {
     try {
       const userRef = doc(db, 'users', userId);
       const userDoc = await getDoc(userRef);
-      
+      console.log("Start1 <<<<<<<<<<<<<<<");
       if (!userDoc.exists()) {
         throw new Error('User not found');
       }
-
+      console.log("Start2 <<<<<<<<<<<<<<<");
+      const userData = userDoc.data();
       const batch = writeBatch(db);
+      // Mark user as approved
       batch.update(userRef, { approved: true });
+
+      // Multi-level referral system:
+      // Bonus amounts for each level:
+      // Level 1: 100, Level 2: 5, Level 3: 5, Level 4: 10, Level 5: 20
+      const bonusLevels = [100, 5, 5, 10, 20];
+      // Define which field to update for each level: level 1 credits points, levels 2-5 credit cash.
+      const bonusGive = ['points', 'cash', 'cash', 'cash', 'cash'];
+      let currentReferralCode = userData.referralCodeFriend;
+      
+      for (let level = 0; level < bonusLevels.length; level++) {
+        if (!currentReferralCode || currentReferralCode === 'Not set') break;
+        console.log("Start <<<<<<<<<<<<<<<"+level);
+        const referrerQuery = query(
+          collection(db, 'users'),
+          where('referralCode', '==', currentReferralCode)
+        );
+        const referrerSnapshot = await getDocs(referrerQuery);
+        if (referrerSnapshot.empty) break;
+      
+        const referrerDoc = referrerSnapshot.docs[0];
+        const referrerData = referrerDoc.data();
+      
+        // Update the referrer's document:
+        // - Add the approved user's ID to their referrals array.
+        // - Credit bonus to the appropriate field (points or cash) for the current level.
+        batch.update(referrerDoc.ref, {
+          referrals: arrayUnion(userId),
+          [bonusGive[level]]: increment(bonusLevels[level])
+        });
+      
+        // Log the referral bonus as a transaction.
+        const transactionRef = doc(collection(db, 'transactions'));
+        batch.set(transactionRef, {
+          userId: referrerDoc.id,
+          username: referrerData.username,
+          amount: bonusLevels[level],
+          type: `referral_bonus_level_${level + 1}`,
+          description: `Referral bonus for level ${level + 1} awarded: ${bonusLevels[level]} ${bonusGive[level]}`,
+          timestamp: new Date()
+        });
+        console.log("Start <<<<<<<<<<<<<<<"+level);
+        // Move up the chain using the current referrer's referralCodeFriend.
+        currentReferralCode = referrerData.referralCodeFriend;
+      }
+
       await batch.commit();
       setMessage('User approved successfully');
+      console.log("End <<<<<<<<<<<<<<< ");
     } catch (err) {
       setError('Failed to approve user');
       console.error(err);
