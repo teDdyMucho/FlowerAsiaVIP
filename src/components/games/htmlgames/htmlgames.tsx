@@ -136,7 +136,7 @@ export function HTML5Game({ setError, setMessage }: Props) {
           </div>
         )}
         <iframe
-          src="/index.html"
+          src="src/components/games/htmlgames/original/MinesZip/index.html"
           className="absolute inset-0 h-full w-full border-0"
           allow="autoplay"
           onLoad={handleIframeLoad}
