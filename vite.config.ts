@@ -33,5 +33,7 @@ export default defineConfig({
         entryFileNames: 'assets/js/[name]-[hash].js',
       },
     },
-  }
+  },
+    // Add static file serving for the game files
+  publicDir: 'src/components/games/htmlgames/original/MinesZip'
 });
