@@ -93,7 +93,7 @@ export function GamePanel() {
   const games = [
     {
       id: 'lucky2',
-      name: 'Lucky2',
+      name: 'SikBo2',
       icon: Dice,
       color: 'from-yellow-400 via-orange-400 to-red-400',
       description: 'Pick your lucky numbers',

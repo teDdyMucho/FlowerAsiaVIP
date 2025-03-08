@@ -8,11 +8,10 @@ import { HorseRaceAdmin } from './games/horse-race/horse-race-admin';
 import { UsersAdmin } from './users-admin';
 import { TransactionsAdmin } from './transactions-admin';
 import { ProfitPanel } from './profit-panel';
-import { ReferralPanel } from './referral-panel';
 import { VIPAdmin } from './vip-admin';
 import { AlertCircle, CheckCircle2, Dice1, Binary, Swords, Users, Receipt, TrendingUp, DollarSign, BarChart3, Network, Users as Horse, Crown } from 'lucide-react';
 
-type AdminSection = 'lucky2' | 'bingo' | 'versus' | 'horse' | 'users' | 'transactions' | 'referrals' | 'vip';
+type AdminSection = 'lucky2' | 'bingo' | 'versus' | 'users' | 'transactions' | 'vip';
 
 export function AdminPanel() {
   const { user } = useAuthStore();
@@ -55,13 +54,6 @@ export function AdminPanel() {
       description: 'Set up and manage versus matches'
     },
     { 
-      id: 'horse', 
-      label: 'Horse Race', 
-      icon: Horse, 
-      color: 'from-green-500 to-emerald-500',
-      description: 'Manage virtual horse racing'
-    },
-    { 
       id: 'users', 
       label: 'Users', 
       icon: Users, 
@@ -74,13 +66,6 @@ export function AdminPanel() {
       icon: Receipt, 
       color: 'from-red-500 to-rose-500',
       description: 'View and track all transactions'
-    },
-    {
-      id: 'referrals',
-      label: 'Referrals',
-      icon: Network,
-      color: 'from-blue-500 to-purple-500',
-      description: 'Manage referral system and bonuses'
     },
     {
       id: 'vip',
@@ -203,17 +188,11 @@ export function AdminPanel() {
           {activeSection === 'versus' && (
             <VersusAdmin setError={setError} setMessage={setMessage} />
           )}
-          {activeSection === 'horse' && (
-            <HorseRaceAdmin setError={setError} setMessage={setMessage} />
-          )}
           {activeSection === 'users' && (
             <UsersAdmin setError={setError} setMessage={setMessage} />
           )}
           {activeSection === 'transactions' && (
             <TransactionsAdmin />
-          )}
-          {activeSection === 'referrals' && (
-            <ReferralPanel />
           )}
           {activeSection === 'vip' && (
             <VIPAdmin setError={setError} setMessage={setMessage} />

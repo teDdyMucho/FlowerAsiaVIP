@@ -204,7 +204,7 @@ export function Lucky2Game({ gameStatus, jackpot, setError, setMessage }: Props)
 
   return (
     <div className="rounded-lg bg-white p-4 shadow-md md:p-6">
-      <h2 className="mb-4 text-xl font-bold md:text-2xl">Lucky2 Game</h2>
+      <h2 className="mb-4 text-xl font-bold md:text-2xl">SikBo2 Game</h2>
       
       <div className="mb-4 rounded-md bg-gray-50 p-3 md:mb-6 md:p-4">
         <h3 className="mb-2 font-semibold">Game Rules:</h3>
