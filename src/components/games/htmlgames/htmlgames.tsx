@@ -125,7 +125,7 @@ export function HTML5Game({ setError, setMessage }: Props) {
       <div className="relative aspect-[16/9] w-full overflow-hidden rounded-lg bg-black shadow-lg">
         <iframe
           ref={iframeRef}
-          src="/src/components/games/htmlgames/original/MinesZip/index.html"
+          src="/MinesZip/index.html"
           className="absolute inset-0 h-full w-full border-0"
           allow="autoplay"
         />
