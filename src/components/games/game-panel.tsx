@@ -83,21 +83,10 @@ export function GamePanel() {
       }
     });
 
-    // Listen to Horse Race game status
-    const unsubHorse = onSnapshot(doc(db, 'gameRounds', 'horseRound'), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        setGameStatus(prev => ({
-          ...prev,
-          horse: data.status === 'open'
-        }));
-      }
-    });
 
     return () => {
       unsubLucky2();
       unsubBingo();
-      unsubHorse();
     };
   }, []);
 
@@ -124,14 +113,6 @@ export function GamePanel() {
       icon: Swords,
       color: 'from-green-400 via-emerald-400 to-teal-400',
       description: 'Team vs Team betting'
-    },
-    {
-      id: 'horse',
-      name: 'Horse Race',
-      icon: Horse,
-      color: 'from-purple-400 via-pink-400 to-red-400',
-      description: 'Virtual horse racing',
-      status: gameStatus.horse ? 'open' : 'closed'
     }
   ] as const;
 
