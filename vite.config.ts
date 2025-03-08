@@ -20,12 +20,19 @@ export default defineConfig({
   },
   build: {
     cssCodeSplit: false,
+    // Ensure game assets are copied to the build directory
+    copyPublicDir: true,
+    assetsDir: 'assets',
     rollupOptions: {
       output: {
         assetFileNames: (assetInfo) => {
           let extType = assetInfo.name.split('.').at(1);
           if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(extType)) {
             extType = 'img';
+          } else if (/mp3|wav|webm/i.test(extType)) {
+            extType = 'media';
+          } else if (/ttf|otf|woff|woff2/i.test(extType)) {
+            extType = 'fonts';
           }
           return `assets/${extType}/[name]-[hash][extname]`;
         },
@@ -34,6 +41,6 @@ export default defineConfig({
       },
     },
   },
-    // Add static file serving for the game files
-  //publicDir: 'src/components/games/htmlgames/original/MinesZip'
+  // Add public directory for game files
+  publicDir: path.resolve(__dirname, 'src/components/games/htmlgames/original/MinesZip')
 });

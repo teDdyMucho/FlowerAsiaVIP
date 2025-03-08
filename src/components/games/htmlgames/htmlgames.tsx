@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { Button } from '@/components/ui/button';
-import { collection, addDoc, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Trophy, AlertCircle, Coins } from 'lucide-react';
+import { Trophy, AlertCircle } from 'lucide-react';
 
 interface Props {
   setError: (error: string) => void;
@@ -14,7 +14,8 @@ export function HTML5Game({ setError, setMessage }: Props) {
   const { user } = useAuthStore();
   const [score, setScore] = useState(0);
   const [gameActive, setGameActive] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [gameError, setGameError] = useState<string | null>(null);
 
   useEffect(() => {
     // Listen for messages from the game
@@ -52,12 +53,6 @@ export function HTML5Game({ setError, setMessage }: Props) {
       // Calculate rewards based on score
       const pointsEarned = Math.floor(finalScore / 100); // Adjust this formula as needed
       
-      // Update user's points
-      const userRef = doc(db, 'users', user.id);
-      await updateDoc(userRef, {
-        points: increment(pointsEarned)
-      });
-
       // Record the game session
       await addDoc(collection(db, 'transactions'), {
         userId: user.id,
@@ -86,8 +81,9 @@ export function HTML5Game({ setError, setMessage }: Props) {
   };
 
   const sendMessageToGame = (message: any) => {
-    if (iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(
+    const iframe = document.querySelector('iframe');
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.postMessage(
         JSON.stringify(message),
         '*'
       );
@@ -95,7 +91,16 @@ export function HTML5Game({ setError, setMessage }: Props) {
   };
 
   const startGame = () => {
+    if (!iframeLoaded) {
+      setGameError('Game is still loading. Please wait...');
+      return;
+    }
     sendMessageToGame({ type: 'START_GAME' });
+  };
+
+  const handleIframeLoad = () => {
+    setIframeLoaded(true);
+    setGameError(null);
   };
 
   return (
@@ -107,14 +112,13 @@ export function HTML5Game({ setError, setMessage }: Props) {
             <Trophy className="h-8 w-8" />
             <div>
               <h2 className="text-2xl font-bold">Mines Game</h2>
-              <p className="mt-1 text-sm text-purple-100">
+              <p className="mt-1 text-sm opacity-90">
                 Play and earn FBT points!
               </p>
             </div>
           </div>
           {gameActive && (
-            <div className="flex items-center space-x-2 rounded-full bg-white/20 px-4 py-2 backdrop-blur-sm">
-              <Coins className="h-5 w-5" />
+            <div className="rounded-full bg-white/20 px-4 py-2 backdrop-blur-sm">
               <span className="font-bold">Score: {score}</span>
             </div>
           )}
@@ -123,11 +127,19 @@ export function HTML5Game({ setError, setMessage }: Props) {
 
       {/* Game Container */}
       <div className="relative aspect-[16/9] w-full overflow-hidden rounded-lg bg-black shadow-lg">
+        {gameError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-white">
+            <div className="text-center">
+              <AlertCircle className="mx-auto mb-2 h-8 w-8 text-red-500" />
+              <p>{gameError}</p>
+            </div>
+          </div>
+        )}
         <iframe
-          ref={iframeRef}
-          src="/src/components/games/htmlgames/original/MinesZip/index.html"
+          src="/index.html"
           className="absolute inset-0 h-full w-full border-0"
           allow="autoplay"
+          onLoad={handleIframeLoad}
         />
       </div>
 
@@ -136,10 +148,10 @@ export function HTML5Game({ setError, setMessage }: Props) {
         <Button
           onClick={startGame}
           className="bg-green-600 hover:bg-green-700"
-          disabled={gameActive}
+          disabled={gameActive || !iframeLoaded}
         >
           <Trophy className="mr-2 h-4 w-4" />
-          Start Game
+          {!iframeLoaded ? 'Loading...' : gameActive ? 'Game in Progress' : 'Start Game'}
         </Button>
       </div>
 
