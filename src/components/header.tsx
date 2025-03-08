@@ -78,7 +78,7 @@ export function Header() {
                     className="flex items-center space-x-2 text-green-600 hover:bg-green-50 hover:text-green-700"
                   >
                     <Gamepad2 className="h-4 w-4" />
-                    <span>Game Panel</span>
+                    <span>Games</span>
                   </Button>
                   {user.isAdmin && (
                     <Button
