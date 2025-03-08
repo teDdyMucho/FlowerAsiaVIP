@@ -6,7 +6,7 @@ import { Dice1 as Dice, Binary as Bingo, Swords, Users as Horse, Gamepad2 } from
 import { Lucky2Game } from './lucky2/lucky2-game';
 import { BingoGame } from './bingo/bingo-game';
 import { VersusGames } from './versus/versus-games';
-import { HTML5Game } from './htmlgames/horse-race-game';
+import { HTML5Game } from './htmlgames/htmlgames';
 
 interface GameStatus {
   lucky2: boolean;
