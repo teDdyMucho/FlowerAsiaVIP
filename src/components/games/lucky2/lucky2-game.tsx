@@ -125,8 +125,8 @@ export function Lucky2Game({ gameStatus, jackpot, setError, setMessage }: Props)
     const num2 = parseInt(numbers.num2);
     const amount = parseInt(betAmount);
 
-    if (!num1 || !num2 || num1 === num2 || num1 < 1 || num1 > 30 || num2 < 31 || num2 > 60) {
-      setError('Please pick two different numbers between 1 and 60');
+    if (!num1 || !num2 || num1 === num2 || num1 < 1 || num1 > 6 || num2 < 1 || num2 > 6) {
+      setError('Please pick two different numbers between 1 and 6');
       return;
     }
 
