@@ -34,6 +34,4 @@ export default defineConfig({
       },
     },
   },
-  // Add static file serving for the game files
-  publicDir: 'src/components/games/html5/MinesZip'
 });

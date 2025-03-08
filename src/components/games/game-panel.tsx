@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth-store';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Dice1 as Dice, Binary as Bingo, Swords, Users as Horse, Gamepad2 } from 'lucide-react';
+import { Dice1 as Dice, Binary as Bingo, Swords, Users as Horse } from 'lucide-react';
 import { Lucky2Game } from './lucky2/lucky2-game';
 import { BingoGame } from './bingo/bingo-game';
 import { VersusGames } from './versus/versus-games';
-import { HTML5Game } from './html5/htmlgames';
 
 interface GameStatus {
   lucky2: boolean;
@@ -44,7 +43,7 @@ export function GamePanel() {
   });
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [selectedGame, setSelectedGame] = useState<'lucky2' | 'bingo' | 'versus' | 'html5'>('lucky2');
+  const [selectedGame, setSelectedGame] = useState<'lucky2' | 'bingo' | 'versus'>('lucky2');
 
   useEffect(() => {
     // Listen to Lucky2 game status
@@ -113,13 +112,6 @@ export function GamePanel() {
       icon: Swords,
       color: 'from-green-400 via-emerald-400 to-teal-400',
       description: 'Team vs Team betting'
-    },
-    {
-      id: 'html5',
-      name: 'Original Games',
-      icon: Gamepad2,
-      color: 'from-indigo-400 via-violet-400 to-purple-400',
-      description: 'Play and earn points!'
     }
   ] as const;
 
@@ -145,13 +137,6 @@ export function GamePanel() {
         );
       case 'versus':
         return <VersusGames onBetClick={() => {}} />;
-        case 'html5':
-          return (
-            <HTML5Game
-              setError={setError}
-              setMessage={setMessage}
-            />
-          );
       default:
         return null;
     }
