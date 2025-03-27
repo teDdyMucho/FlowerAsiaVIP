@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/auth-store';
-import { collection, query, where, getDocs, doc, setDoc, runTransaction } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, runTransaction, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { generateReferralCode } from '@/lib/utils';
 import { AuthPanel } from '@/components/auth/auth-panel';
@@ -12,7 +12,7 @@ import { HomePanel } from '@/components/home/home-panel';
 import { ChatBubble } from '@/components/chat/chat-bubble';
 import { MessageNotification } from '@/components/notifications/message-notification';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, WifiOff } from 'lucide-react';
+import { X, WifiOff, Trophy, Star, Sparkles, PartyPopper } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import React from 'react';
 
@@ -137,6 +137,13 @@ function BetDialog({ open, onOpenChange, teamName, odds, prizePool, onBet }: Bet
   );
 }
 
+interface Winner {
+  username: string;
+  amount: number;
+  game: string;
+  timestamp: Date;
+}
+
 function App() {
   const { user } = useAuthStore();
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
@@ -149,7 +156,7 @@ function App() {
     prizePool: number;
   } | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
-
+  const [winners, setWinners] = useState<Winner[]>([]);
 
   // Handle online/offline status
   useEffect(() => {
@@ -162,6 +169,28 @@ function App() {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Listen to recent winners
+  useEffect(() => {
+    const winnersQuery = query(
+      collection(db, 'winners'),
+      orderBy('timestamp', 'desc'),
+      limit(10)
+    );
+
+    const unsubWinners = onSnapshot(winnersQuery, (snapshot) => {
+      const winnersList = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        timestamp: doc.data().timestamp?.toDate()
+      })) as Winner[];
+      
+      setWinners(winnersList);
+    });
+
+    return () => {
+      unsubWinners();
     };
   }, []);
 
@@ -324,6 +353,35 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
+      
+      {/* Winners Marquee */}
+      {winners.length > 0 && (
+        <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 py-2 text-white overflow-hidden relative h-10">
+          <div className="animate-marquee whitespace-nowrap flex items-center absolute top-1/2 -translate-y-1/2">
+            {[...winners, ...winners, ...winners].map((winner, index) => {
+              // Randomly select an icon for each winner
+              const icons = [
+                <Trophy key="trophy" className="h-5 w-5 text-yellow-300" />,
+                <Star key="star" className="h-5 w-5 text-yellow-300" />,
+                <Sparkles key="sparkles" className="h-5 w-5 text-yellow-300" />,
+                <PartyPopper key="party" className="h-5 w-5 text-yellow-300" />
+              ];
+              const randomIcon = icons[index % icons.length];
+              
+              return (
+                <div key={index} className="mx-4 flex items-center">
+                  {randomIcon}
+                  <span className="ml-2 font-bold">{winner.username}</span>
+                  <span className="ml-1">won</span>
+                  <span className="ml-1 font-bold text-yellow-300">{winner.amount} FBT</span>
+                  <span className="ml-1">in</span>
+                  <span className="ml-1 font-bold">{winner.game}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       
       <main className="container mx-auto px-4 py-4 md:py-8">
         <div className="space-y-6 md:space-y-8">

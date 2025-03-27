@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Dice1 as Dice, Binary as Bingo, Swords, PiggyBank } from 'lucide-react';
+import { Dice1 as Dice, Binary as Bingo, Swords, PiggyBank, Dices } from 'lucide-react';
 import { Lucky2Game } from './lucky2/lucky2-game';
 import { BingoGame } from './bingo/bingo-game';
 import { VersusGames } from './versus/versus-games';
 import { InvestmentsGame } from './investments/investments-game';
+import { UltraManualGame } from './ultra-manual/ultra-manual-game';
 
 interface GameStatus {
   lucky2: boolean;
@@ -42,7 +43,7 @@ export function GamePanel() {
   });
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [selectedGame, setSelectedGame] = useState<'lucky2' | 'bingo' | 'versus' | 'investments'>('lucky2');
+  const [selectedGame, setSelectedGame] = useState<'lucky2' | 'bingo' | 'versus' | 'investments' | 'ultraManual'>('lucky2');
 
   useEffect(() => {
     // Listen to Lucky2 game status
@@ -118,6 +119,13 @@ export function GamePanel() {
       icon: PiggyBank,
       color: 'from-blue-500 via-indigo-500 to-purple-500',
       description: 'Secure FBT investments'
+    },
+    {
+      id: 'ultraManual' as const,
+      name: 'Ultra Manual',
+      icon: Dices,
+      color: 'from-purple-500 via-pink-500 to-rose-500',
+      description: 'Manual bet processing'
     }
   ];
 
@@ -145,6 +153,8 @@ export function GamePanel() {
         return <VersusGames onBetClick={() => {}} />;
       case 'investments':
         return <InvestmentsGame setError={setError} setMessage={setMessage} />;
+      case 'ultraManual':
+        return <UltraManualGame setError={setError} setMessage={setMessage} />;
       default:
         return null;
     }

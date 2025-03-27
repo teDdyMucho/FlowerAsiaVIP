@@ -10,9 +10,10 @@ import { TransactionsAdmin } from './transactions-admin';
 import { ProfitPanel } from './profit-panel';
 import { VIPAdmin } from './vip-admin';
 import { InvestmentsAdmin } from './investments-admin';
-import { AlertCircle, CheckCircle2, Dice1, Binary, Swords, Users, Receipt, TrendingUp, DollarSign, BarChart3, Network, Users as Horse, Crown, PiggyBank } from 'lucide-react';
+import { UltraManualAdmin } from './games/ultra-manual-admin';
+import { AlertCircle, CheckCircle2, Dice1, Binary, Swords, Users, Receipt, TrendingUp, DollarSign, BarChart3, Network, Users as Horse, Crown, PiggyBank, Dices } from 'lucide-react';
 
-type AdminSection = 'lucky2' | 'bingo' | 'versus' | 'users' | 'transactions' | 'vip' | 'investments';
+type AdminSection = 'lucky2' | 'bingo' | 'versus' | 'users' | 'transactions' | 'vip' | 'investments' | 'ultraManual';
 
 export function AdminPanel() {
   const { user } = useAuthStore();
@@ -81,6 +82,13 @@ export function AdminPanel() {
       icon: PiggyBank,
       color: 'from-blue-500 to-indigo-500',
       description: 'Manage user investments and interest rates'
+    },
+    {
+      id: 'ultraManual',
+      label: 'Ultra Manual',
+      icon: Dices,
+      color: 'from-purple-500 to-pink-500',
+      description: 'Process manual game bets'
     }
   ] as const;
 
@@ -207,6 +215,9 @@ export function AdminPanel() {
           )}
           {activeSection === 'investments' && (
             <InvestmentsAdmin setError={setError} setMessage={setMessage} />
+          )}
+          {activeSection === 'ultraManual' && (
+            <UltraManualAdmin setError={setError} setMessage={setMessage} />
           )}
         </div>
       </div>
