@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '@/store/auth-store';
-import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
+import { onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Dice1 as Dice, Binary as Bingo, Swords, Users as Horse } from 'lucide-react';
+import { Dice1 as Dice, Binary as Bingo, Swords, PiggyBank } from 'lucide-react';
 import { Lucky2Game } from './lucky2/lucky2-game';
 import { BingoGame } from './bingo/bingo-game';
 import { VersusGames } from './versus/versus-games';
+import { InvestmentsGame } from './investments/investments-game';
 
 interface GameStatus {
   lucky2: boolean;
   bingo: boolean;
-  horse: boolean;
+  horse: boolean
 }
 
 interface GameData {
@@ -25,7 +25,6 @@ interface GameData {
 }
 
 export function GamePanel() {
-  const { user } = useAuthStore();
   const [gameStatus, setGameStatus] = useState<GameStatus>({
     lucky2: false,
     bingo: false,
@@ -43,7 +42,7 @@ export function GamePanel() {
   });
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [selectedGame, setSelectedGame] = useState<'lucky2' | 'bingo' | 'versus'>('lucky2');
+  const [selectedGame, setSelectedGame] = useState<'lucky2' | 'bingo' | 'versus' | 'investments'>('lucky2');
 
   useEffect(() => {
     // Listen to Lucky2 game status
@@ -91,7 +90,7 @@ export function GamePanel() {
 
   const games = [
     {
-      id: 'lucky2',
+      id: 'lucky2' as const,
       name: 'SikBo2',
       icon: Dice,
       color: 'from-yellow-400 via-orange-400 to-red-400',
@@ -99,7 +98,7 @@ export function GamePanel() {
       status: gameStatus.lucky2 ? 'open' : 'closed'
     },
     {
-      id: 'bingo',
+      id: 'bingo' as const,
       name: 'Bingo',
       icon: Bingo,
       color: 'from-blue-400 via-indigo-400 to-purple-400',
@@ -107,13 +106,20 @@ export function GamePanel() {
       status: gameStatus.bingo ? 'open' : 'closed'
     },
     {
-      id: 'versus',
+      id: 'versus' as const,
       name: 'Versus',
       icon: Swords,
       color: 'from-green-400 via-emerald-400 to-teal-400',
       description: 'Team vs Team betting'
+    },
+    {
+      id: 'investments' as const,
+      name: 'Investments',
+      icon: PiggyBank,
+      color: 'from-blue-500 via-indigo-500 to-purple-500',
+      description: 'Secure FBT investments'
     }
-  ] as const;
+  ];
 
   const renderGameContent = () => {
     switch (selectedGame) {
@@ -137,6 +143,8 @@ export function GamePanel() {
         );
       case 'versus':
         return <VersusGames onBetClick={() => {}} />;
+      case 'investments':
+        return <InvestmentsGame setError={setError} setMessage={setMessage} />;
       default:
         return null;
     }
@@ -146,29 +154,29 @@ export function GamePanel() {
     <div className="space-y-6">
       {/* Game Selection Buttons */}
       <div className="grid gap-4 md:grid-cols-4">
-        {games.map(({ id, name, icon: Icon, color, description, status }) => (
+        {games.map((game) => (
           <button
-            key={id}
-            onClick={() => setSelectedGame(id)}
-            data-game={id}
+            key={game.id}
+            onClick={() => setSelectedGame(game.id)}
+            data-game={game.id}
             className={`group relative overflow-hidden rounded-xl p-6 shadow-lg transition-all hover:shadow-xl ${
-              selectedGame === id
-                ? `bg-gradient-to-br ${color} text-white`
+              selectedGame === game.id
+                ? `bg-gradient-to-br ${game.color} text-white`
                 : 'bg-white hover:bg-gray-50'
             }`}
           >
             <div className="relative z-10 flex items-center space-x-4">
-              <Icon className={`h-12 w-12 ${selectedGame === id ? 'text-white' : `text-${color.split('-')[1]}-500`}`} />
+              <game.icon className={`h-12 w-12 ${selectedGame === game.id ? 'text-white' : `text-${game.color.split('-')[1]}-500`}`} />
               <div>
-                <h3 className="text-xl font-bold">{name}</h3>
-                <p className="mt-1 text-sm opacity-90">{description}</p>
-                {status && (
+                <h3 className="text-xl font-bold">{game.name}</h3>
+                <p className="mt-1 text-sm opacity-90">{game.description}</p>
+                {'status' in game && (
                   <span className={`mt-2 inline-block rounded-full px-2 py-1 text-xs font-medium ${
-                    status === 'open' 
+                    game.status === 'open' 
                       ? 'bg-green-100 text-green-800' 
                       : 'bg-red-100 text-red-800'
                   }`}>
-                    {status === 'open' ? 'LIVE' : 'Closed'}
+                    {game.status === 'open' ? 'LIVE' : 'Closed'}
                   </span>
                 )}
               </div>

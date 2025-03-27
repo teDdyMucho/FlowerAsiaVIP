@@ -136,7 +136,7 @@ export function Header() {
                       className="flex w-full items-center justify-start space-x-2 text-blue-600"
                     >
                       <User className="h-4 w-4" />
-                      <span>Game Info</span>
+                      <span>Live Games</span>
                     </Button>
                     <Button
                       onClick={() => navigateToPanel('game')}
@@ -144,7 +144,7 @@ export function Header() {
                       className="flex w-full items-center justify-start space-x-2 text-green-600"
                     >
                       <Gamepad2 className="h-4 w-4" />
-                      <span>Game Panel</span>
+                      <span>Games</span>
                     </Button>
                     {user.isAdmin && (
                       <Button

@@ -1,24 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  doc,
-  updateDoc,
-  addDoc,
-  getDoc,
-  getDocs,
-  writeBatch,
-  deleteDoc,
-  increment,
-  arrayUnion
-} from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, getDoc, getDocs, addDoc, writeBatch, increment, orderBy, deleteDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Check, X, User, Users, CircleDollarSign, DollarSign, AlertCircle, Trash2, Ban, MessageSquare, Search } from 'lucide-react';
+import * as Dialog from '@radix-ui/react-dialog';
 import { UserLogsDialog } from './user-logs-dialog';
 import { SendMessageDialog } from './send-message-dialog';
-import { Trash2, Ban, MessageSquare, Search, DollarSign, CircleDollarSign } from 'lucide-react';
 
 interface Props {
   setError: (error: string) => void;
@@ -47,6 +35,7 @@ interface Request {
   amount: number;
   status: 'pending' | 'approved' | 'declined';
   timestamp: Date;
+  processedAt?: Date;
 }
 
 export function UsersAdmin({ setError, setMessage }: Props) {
@@ -62,6 +51,10 @@ export function UsersAdmin({ setError, setMessage }: Props) {
   });
   const [requests, setRequests] = useState<Request[]>([]);
   const [showPendingApprovalOnly, setShowPendingApprovalOnly] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState<Request | null>(null);
+  const [withdrawalFee, setWithdrawalFee] = useState('0');
+  const [isWithdrawalDialogOpen, setIsWithdrawalDialogOpen] = useState(false);
 
   useEffect(() => {
     // Listen to users
@@ -138,11 +131,10 @@ export function UsersAdmin({ setError, setMessage }: Props) {
     try {
       const userRef = doc(db, 'users', userId);
       const userDoc = await getDoc(userRef);
-      console.log("Start1 <<<<<<<<<<<<<<<");
       if (!userDoc.exists()) {
         throw new Error('User not found');
       }
-      console.log("Start2 <<<<<<<<<<<<<<<");
+      
       const userData = userDoc.data();
       const batch = writeBatch(db);
       // Mark user as approved
@@ -153,12 +145,15 @@ export function UsersAdmin({ setError, setMessage }: Props) {
       // Level 1: 100, Level 2: 5, Level 3: 5, Level 4: 10, Level 5: 20
       const bonusLevels = [100, 5, 5, 10, 20];
       // Define which field to update for each level: level 1 credits points, levels 2-5 credit cash.
-      const bonusGive = ['points', 'cash', 'cash', 'cash', 'cash'];
+      const bonusGive = ['points', 'points', 'points', 'points', 'points'];
       let currentReferralCode = userData.referralCodeFriend;
+      
+      // Keep track of referrers who have already been rewarded to prevent duplicates
+      const processedReferrers = new Set();
       
       for (let level = 0; level < bonusLevels.length; level++) {
         if (!currentReferralCode || currentReferralCode === 'Not set') break;
-        console.log("Start <<<<<<<<<<<<<<<"+level);
+        
         const referrerQuery = query(
           collection(db, 'users'),
           where('referralCode', '==', currentReferralCode)
@@ -167,6 +162,17 @@ export function UsersAdmin({ setError, setMessage }: Props) {
         if (referrerSnapshot.empty) break;
       
         const referrerDoc = referrerSnapshot.docs[0];
+        const referrerId = referrerDoc.id;
+        
+        // Skip if this referrer has already been processed (prevents double rewards)
+        if (processedReferrers.has(referrerId)) {
+          console.log(`Skipping duplicate referrer: ${referrerId} at level ${level + 1}`);
+          break; // Exit the loop as we've hit a cycle in the referral chain
+        }
+        
+        // Mark this referrer as processed
+        processedReferrers.add(referrerId);
+        
         const referrerData = referrerDoc.data();
       
         // Update the referrer's document:
@@ -185,16 +191,19 @@ export function UsersAdmin({ setError, setMessage }: Props) {
           amount: bonusLevels[level],
           type: `referral_bonus_level_${level + 1}`,
           description: `Referral bonus for level ${level + 1} awarded: ${bonusLevels[level]} ${bonusGive[level]}`,
-          timestamp: new Date()
+          timestamp: new Date(),
+          balanceAfter: {
+            points: (referrerData.points || 0) + (bonusGive[level] === 'points' ? bonusLevels[level] : 0),
+            cash: (referrerData.cash || 0) + (bonusGive[level] === 'cash' ? bonusLevels[level] : 0)
+          }
         });
-        console.log("Start <<<<<<<<<<<<<<<"+level);
+        
         // Move up the chain using the current referrer's referralCodeFriend.
         currentReferralCode = referrerData.referralCodeFriend;
       }
 
       await batch.commit();
       setMessage('User approved successfully');
-      console.log("End <<<<<<<<<<<<<<< ");
     } catch (err) {
       setError('Failed to approve user');
       console.error(err);
@@ -296,7 +305,25 @@ export function UsersAdmin({ setError, setMessage }: Props) {
     });
   };
 
-  const handleRequest = async (request: Request, approve: boolean) => {
+  const handleRequest = async (requestId: string, approve: boolean) => {
+    const request = requests.find(r => r.id === requestId);
+    if (!request) {
+      setError('Request not found');
+      return;
+    }
+
+    if (request.type === 'withdrawal' && approve) {
+      setSelectedWithdrawal(request);
+      setWithdrawalFee('0');
+      setIsWithdrawalDialogOpen(true);
+      return;
+    }
+
+    processRequest(request, approve);
+  };
+
+  const processRequest = async (request: Request, approve: boolean, fee: number = 0) => {
+    setIsProcessing(true);
     try {
       const batch = writeBatch(db);
       const requestRef = doc(db, 'requests', request.id);
@@ -311,9 +338,32 @@ export function UsersAdmin({ setError, setMessage }: Props) {
 
       if (approve) {
         if (request.type === 'withdrawal') {
+          // Apply transaction fee if set
+          const finalAmount = request.amount;
+          const feeAmount = fee;
+
           batch.update(requestRef, {
             status: 'approved',
-            processedAt: new Date()
+            processedAt: new Date(),
+            fee: feeAmount
+          });
+
+          // Log transaction with fee information
+          const transactionRef = doc(collection(db, 'transactions'));
+          batch.set(transactionRef, {
+            userId: request.userId,
+            username: request.username,
+            amount: -finalAmount,
+            fee: feeAmount,
+            type: 'withdrawal_approved',
+            description: feeAmount > 0 
+              ? `Cash withdrawal approved (Fee: ${feeAmount})`
+              : 'Cash withdrawal approved',
+            timestamp: new Date(),
+            balanceAfter: {
+              points: userData.points || 0,
+              cash: userData.cash || 0
+            }
           });
         } else if (request.type === 'loan') {
           batch.update(userRef, {
@@ -371,7 +421,22 @@ export function UsersAdmin({ setError, setMessage }: Props) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process request');
       console.error(err);
+    } finally {
+      setIsProcessing(false);
     }
+  };
+
+  const handleWithdrawalApproval = () => {
+    if (!selectedWithdrawal) return;
+    
+    const fee = parseFloat(withdrawalFee);
+    if (isNaN(fee) || fee < 0) {
+      setError('Please enter a valid transaction fee');
+      return;
+    }
+    
+    setIsWithdrawalDialogOpen(false);
+    processRequest(selectedWithdrawal, true, fee);
   };
 
   return (
@@ -405,18 +470,24 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                     </p>
                   </div>
                 </div>
-                <div className="flex w-full space-x-2 md:w-auto">
+                <div className="flex space-x-2">
                   <Button
-                    onClick={() => handleRequest(request, true)}
-                    className="flex-1 bg-green-600 hover:bg-green-700 md:flex-none"
+                    onClick={() => handleRequest(request.id, true)}
+                    disabled={isProcessing}
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
                   >
+                    <Check className="mr-1 h-4 w-4" />
                     Approve
                   </Button>
                   <Button
-                    onClick={() => handleRequest(request, false)}
+                    onClick={() => handleRequest(request.id, false)}
+                    disabled={isProcessing}
+                    size="sm"
                     variant="outline"
-                    className="flex-1 border-red-500 text-red-600 hover:bg-red-50 md:flex-none"
+                    className="border-red-500 text-red-600 hover:bg-red-50"
                   >
+                    <X className="mr-1 h-4 w-4" />
                     Decline
                   </Button>
                 </div>
@@ -438,7 +509,7 @@ export function UsersAdmin({ setError, setMessage }: Props) {
                 placeholder="Search by username..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="rounded-md border border-gray-300 pl-9 pr-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="rounded-md border border-gray-300 pl-9 pr-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:ring-offset-2"
               />
             </div>
             <button
@@ -601,6 +672,71 @@ export function UsersAdmin({ setError, setMessage }: Props) {
           setMessage('Message sent successfully');
         }}
       />
+
+      {/* Withdrawal Fee Dialog */}
+      <Dialog.Root open={isWithdrawalDialogOpen} onOpenChange={setIsWithdrawalDialogOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-[9999]" />
+          <Dialog.Content className="fixed left-[50%] top-[50%] max-h-[85vh] w-[90vw] max-w-[500px] translate-x-[-50%] translate-y-[-50%] rounded-lg bg-white p-6 shadow-lg z-[10000]">
+            <Dialog.Title className="text-xl font-semibold">
+              Set Withdrawal Fee
+            </Dialog.Title>
+            
+            {selectedWithdrawal && (
+              <div className="mt-4 space-y-4">
+                <div className="rounded-lg bg-blue-50 p-3">
+                  <p className="text-sm text-blue-800">
+                    <span className="font-medium">{selectedWithdrawal.username}</span> is withdrawing <span className="font-medium">{selectedWithdrawal.amount} Cash</span>
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label htmlFor="withdrawalFee" className="block text-sm font-medium text-gray-700">
+                      Transaction Fee
+                    </label>
+                    <div className="mt-1 relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <DollarSign className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <Input
+                        id="withdrawalFee"
+                        type="number"
+                        value={withdrawalFee}
+                        onChange={(e) => setWithdrawalFee(e.target.value)}
+                        placeholder="Enter fee amount"
+                        min="0"
+                        step="1"
+                        className="pl-10"
+                        required
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Set to 0 for no transaction fee
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="mt-6 flex justify-end space-x-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsWithdrawalDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleWithdrawalApproval}
+                    disabled={isProcessing}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {isProcessing ? 'Processing...' : 'Approve Withdrawal'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

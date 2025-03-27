@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { collection, doc, getDoc, updateDoc, addDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, updateDoc, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { calculateMaxReferrals } from '@/services/vipService';
 
@@ -30,6 +30,7 @@ export interface VIPState {
   };
   initializeVIP: (userId: string) => Promise<void>;
   requestUpgrade: (userId: string, targetLevel: number) => Promise<void>;
+  transferPoints: (userId: string, recipientIdentifier: string, amount: number) => Promise<void>;
 }
 
 export const DEFAULT_VIP_DATA = {
@@ -59,8 +60,9 @@ export const DEFAULT_VIP_DATA = {
 
 export const useVIPStore = create<VIPState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       ...DEFAULT_VIP_DATA,
+      referralCode: '',
       initializeVIP: async (userId: string) => {
         try {
           const userRef = doc(db, 'users', userId);
@@ -137,6 +139,77 @@ export const useVIPStore = create<VIPState>()(
           });
         } catch (error) {
           console.error('Failed to request upgrade:', error);
+          throw error;
+        }
+      },
+      transferPoints: async (userId: string, recipientIdentifier: string, amount: number) => {
+        try {
+          // Validate input
+          if (!userId) throw new Error('User ID is required');
+          if (!recipientIdentifier) throw new Error('Recipient username or referral code is required');
+          if (!amount || amount <= 0) throw new Error('Transfer amount must be greater than 0');
+
+          // Get sender user data
+          const userRef = doc(db, 'users', userId);
+          const userDoc = await getDoc(userRef);
+
+          if (!userDoc.exists()) {
+            throw new Error('User not found');
+          }
+
+          const userData = userDoc.data();
+          
+          // Check if user is VIP
+          if (!userData.vipLevel || userData.vipLevel < 1) {
+            throw new Error('Only VIP users can transfer points');
+          }
+
+          // Check if user has enough points
+          if (userData.points < amount) {
+            throw new Error('Insufficient points for transfer');
+          }
+
+          // Find recipient by username or referral code
+          const usersRef = collection(db, 'users');
+          const q = query(
+            usersRef,
+            where(
+              recipientIdentifier.startsWith('FBT') ? 'referralCode' : 'username',
+              '==',
+              recipientIdentifier.startsWith('FBT') ? recipientIdentifier : recipientIdentifier.toLowerCase()
+            )
+          );
+          
+          const querySnapshot = await getDocs(q);
+          
+          if (querySnapshot.empty) {
+            throw new Error('Recipient not found');
+          }
+          
+          const recipientDoc = querySnapshot.docs[0];
+          const recipientData = recipientDoc.data();
+          const recipientId = recipientDoc.id;
+          
+          // Don't allow transfers to self
+          if (recipientId === userId) {
+            throw new Error('Cannot transfer points to yourself');
+          }
+
+          // Create a transfer request for admin approval
+          await addDoc(collection(db, 'requests'), {
+            userId,
+            username: userData.username,
+            type: 'point_transfer',
+            recipientId,
+            recipientUsername: recipientData.username,
+            amount,
+            status: 'pending',
+            timestamp: new Date(),
+          });
+
+          return;
+        } catch (error) {
+          console.error('Failed to transfer points:', error);
           throw error;
         }
       },

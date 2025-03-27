@@ -27,10 +27,11 @@ interface Referral {
 
 interface Request {
   id: string;
-  type: 'withdrawal' | 'loan';
+  type: 'withdrawal' | 'loan' | 'point_transfer';
   amount: number;
   status: 'pending' | 'approved' | 'declined';
   timestamp: Date;
+  recipientUsername?: string;
 }
 
 interface VersusBet {
@@ -584,10 +585,16 @@ export function UserPanel() {
                       <div className="flex flex-col space-y-2 md:flex-row md:items-center md:justify-between md:space-y-0">
                         <div>
                           <p className="text-sm font-medium md:text-base">
-                            {request.type === 'withdrawal' ? 'Cash Withdrawal' : 'FBT Loan'}
+                            {request.type === 'withdrawal' 
+                              ? 'Cash Withdrawal' 
+                              : request.type === 'loan' 
+                                ? 'FBT Loan' 
+                                : 'Point Transfer'}
                           </p>
                           <p className="text-xs text-gray-600 md:text-sm">
-                            Amount: {request.amount} {request.type === 'withdrawal' ? 'Cash' : 'FBT'}
+                            {request.type === 'point_transfer' && request.recipientUsername 
+                              ? `Transfer ${request.amount} points to ${request.recipientUsername}` 
+                              : `Amount: ${request.amount} ${request.type === 'withdrawal' ? 'Cash' : 'FBT'}`}
                           </p>
                           <p className="text-xs text-gray-600 md:text-sm">
                             {request.timestamp.toLocaleString()}

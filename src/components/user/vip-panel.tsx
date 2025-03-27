@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useVIPStore } from '@/store/vip-store';
 import { Button } from '@/components/ui/button';
-import { Crown, Users, Plus, Trash2, Copy, Check } from 'lucide-react';
+import { Crown, Users, Plus, Trash2, Copy, Check, SendHorizonal, User } from 'lucide-react';
 import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuthStore } from '@/store/auth-store';
 import React from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface VIPRequest {
   id: string;
@@ -16,13 +18,29 @@ interface VIPRequest {
   timestamp: Date;
 }
 
+interface PointTransferRequest {
+  id: string;
+  type: 'point_transfer';
+  recipientId: string;
+  recipientUsername: string;
+  amount: number;
+  status: 'pending' | 'approved' | 'declined';
+  timestamp: Date;
+}
+
 export function VIPPanel() {
   const { user } = useAuthStore();
   const vipStore = useVIPStore();
   const [copiedCode, setCopiedCode] = useState(false);
   const [upgradeRequest, setUpgradeRequest] = useState<VIPRequest | null>(null);
+  const [transferRequests, setTransferRequests] = useState<PointTransferRequest[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [vipData, setVipData] = useState<any>(null);
+  
+  // Point transfer form state
+  const [recipientIdentifier, setRecipientIdentifier] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferError, setTransferError] = useState('');
 
   useEffect(() => {
     if (!user?.id) return;
@@ -60,10 +78,32 @@ export function VIPPanel() {
         setUpgradeRequest(null);
       }
     });
+    
+    // Listen to user's point transfer requests
+    const transferRequestsQuery = query(
+      collection(db, 'requests'),
+      where('userId', '==', user.id),
+      where('type', '==', 'point_transfer'),
+      where('status', '==', 'pending')
+    );
+
+    const unsubTransferRequests = onSnapshot(transferRequestsQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        const requests = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          timestamp: doc.data().timestamp.toDate()
+        })) as PointTransferRequest[];
+        setTransferRequests(requests);
+      } else {
+        setTransferRequests([]);
+      }
+    });
 
     return () => {
       unsubUser();
       unsubRequests();
+      unsubTransferRequests();
     };
   }, [user?.id]);
 
@@ -95,6 +135,44 @@ export function VIPPanel() {
       alert('Upgrade request submitted! Please wait for admin approval.');
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to request upgrade');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const handleTransferPoints = async () => {
+    if (isProcessing || !user) return;
+    
+    setTransferError('');
+    
+    if (!recipientIdentifier) {
+      setTransferError('Please enter a username or referral code');
+      return;
+    }
+    
+    const amount = parseInt(transferAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setTransferError('Please enter a valid amount');
+      return;
+    }
+    
+    if (amount > user.points) {
+      setTransferError('Insufficient points for transfer');
+      return;
+    }
+    
+    if (!confirm(`Request to transfer ${amount} points to ${recipientIdentifier}?`)) {
+      return;
+    }
+    
+    setIsProcessing(true);
+    try {
+      await vipStore.transferPoints(user.id, recipientIdentifier, amount);
+      alert('Transfer request submitted! Please wait for admin approval.');
+      setRecipientIdentifier('');
+      setTransferAmount('');
+    } catch (error) {
+      setTransferError(error instanceof Error ? error.message : 'Failed to request transfer');
     } finally {
       setIsProcessing(false);
     }
@@ -196,6 +274,83 @@ export function VIPPanel() {
             <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm font-medium text-yellow-800">
               Pending Approval
             </span>
+          </div>
+        </div>
+      )}
+      
+      {/* Point Transfer Section - Only visible for VIP users */}
+      {vipData.vipLevel > 0 && (
+        <div className="rounded-lg bg-white p-6 shadow-md">
+          <h2 className="mb-4 text-xl font-bold flex items-center">
+            <SendHorizonal className="h-5 w-5 mr-2 text-green-500" />
+            Transfer Points
+          </h2>
+          
+          <div className="space-y-4">
+            <div className="grid gap-2">
+              <Label htmlFor="recipient">Recipient Username or Referral Code</Label>
+              <div className="flex items-center space-x-2">
+                <User className="h-5 w-5 text-gray-400" />
+                <Input 
+                  id="recipient"
+                  placeholder="Enter username or referral code"
+                  value={recipientIdentifier}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRecipientIdentifier(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="amount">Amount</Label>
+              <div className="flex items-center space-x-2">
+                <Input 
+                  id="amount"
+                  type="number"
+                  placeholder="Enter amount to transfer"
+                  value={transferAmount}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTransferAmount(e.target.value)}
+                  min="1"
+                  max={user?.points.toString()}
+                  className="flex-1"
+                />
+                <span className="text-sm text-gray-500">
+                  Available: {user?.points || 0} points
+                </span>
+              </div>
+            </div>
+            
+            {transferError && (
+              <div className="text-sm text-red-500">{transferError}</div>
+            )}
+            
+            {/* Pending Transfer Requests */}
+            {transferRequests.length > 0 && (
+              <div className="mt-4 rounded-lg bg-blue-50 p-4">
+                <h3 className="font-medium text-blue-800 mb-2">Pending Transfer Requests</h3>
+                <div className="space-y-2">
+                  {transferRequests.map(request => (
+                    <div key={request.id} className="text-sm text-blue-700 flex justify-between">
+                      <span>
+                        {request.amount} points to {request.recipientUsername}
+                      </span>
+                      <span className="text-blue-500 text-xs">
+                        {new Date(request.timestamp).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <Button
+              onClick={handleTransferPoints}
+              disabled={isProcessing}
+              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600"
+            >
+              <SendHorizonal className="mr-2 h-4 w-4" />
+              Request Point Transfer
+            </Button>
           </div>
         </div>
       )}

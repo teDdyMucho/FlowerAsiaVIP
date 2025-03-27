@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Crown, Plus, Trash2, Search, X, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
-import { doc, collection, query, where, updateDoc, onSnapshot } from 'firebase/firestore';
+import { Crown, Plus, Trash2, Search, X, ChevronDown, ChevronUp, RefreshCw, SendHorizonal } from 'lucide-react';
+import { doc, collection, query, where, updateDoc, onSnapshot, getDoc, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import * as Dialog from '@radix-ui/react-dialog';
 import { DEFAULT_VIP_DATA } from '@/store/vip-store';
@@ -51,9 +51,22 @@ interface VIPRequest {
   timestamp: Date;
 }
 
+interface PointTransferRequest {
+  id: string;
+  userId: string;
+  username: string;
+  type: 'point_transfer';
+  recipientId: string;
+  recipientUsername: string;
+  amount: number;
+  status: 'pending' | 'approved' | 'declined';
+  timestamp: Date;
+}
+
 export function VIPAdmin({ setError, setMessage }: Props) {
   const [vipUsers, setVipUsers] = useState<VIPUser[]>([]);
   const [vipRequests, setVipRequests] = useState<VIPRequest[]>([]);
+  const [transferRequests, setTransferRequests] = useState<PointTransferRequest[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<VIPUser | null>(null);
   const [selectedVipLevel, setSelectedVipLevel] = useState<number | null>(null);
@@ -61,6 +74,7 @@ export function VIPAdmin({ setError, setMessage }: Props) {
   const [isAddingSlot, setIsAddingSlot] = useState(false);
   const [newSlotName, setNewSlotName] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+  const [isProcessingTransfer, setIsProcessingTransfer] = useState(false);
 
   useEffect(() => {
     // Listen to VIP users.
@@ -109,10 +123,27 @@ export function VIPAdmin({ setError, setMessage }: Props) {
       })) as VIPRequest[];
       setVipRequests(requests.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
     });
+    
+    // Listen to point transfer requests
+    const transferRequestsQuery = query(
+      collection(db, 'requests'),
+      where('type', '==', 'point_transfer'),
+      where('status', '==', 'pending')
+    );
+    
+    const unsubTransferRequests = onSnapshot(transferRequestsQuery, (snapshot) => {
+      const requests = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp.toDate(),
+      })) as PointTransferRequest[];
+      setTransferRequests(requests.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+    });
 
     return () => {
       unsubVip();
       unsubRequests();
+      unsubTransferRequests();
     };
   }, []);
 
@@ -209,6 +240,110 @@ export function VIPAdmin({ setError, setMessage }: Props) {
     }
   };
 
+  const handleTransferRequest = async (request: PointTransferRequest, approve: boolean) => {
+    if (isProcessingTransfer) return;
+    
+    setIsProcessingTransfer(true);
+    try {
+      // First check if the sender still has sufficient points
+      const senderRef = doc(db, 'users', request.userId);
+      const senderDoc = await getDoc(senderRef);
+      
+      if (!senderDoc.exists()) {
+        throw new Error('Sender not found');
+      }
+      
+      const senderData = senderDoc.data();
+      const currentPoints = senderData.points || 0;
+      
+      // If insufficient points, decline the request
+      if (currentPoints < request.amount) {
+        await updateDoc(doc(db, 'requests', request.id), {
+          status: 'declined',
+          processedAt: new Date(),
+          declineReason: 'Insufficient points'
+        });
+        
+        setMessage(`Transfer request declined: Insufficient points`);
+        return;
+      }
+      
+      if (approve) {
+        // Get recipient data
+        const recipientRef = doc(db, 'users', request.recipientId);
+        const recipientDoc = await getDoc(recipientRef);
+        
+        if (!recipientDoc.exists()) {
+          throw new Error('Recipient not found');
+        }
+        
+        const recipientData = recipientDoc.data();
+        const recipientPoints = recipientData.points || 0;
+        
+        // Update sender's points (deduct)
+        const newSenderPoints = currentPoints - request.amount;
+        await updateDoc(senderRef, {
+          points: newSenderPoints
+        });
+        
+        // Update recipient's points (add)
+        const newRecipientPoints = recipientPoints + request.amount;
+        await updateDoc(recipientRef, {
+          points: newRecipientPoints
+        });
+        
+        // Update request status
+        await updateDoc(doc(db, 'requests', request.id), {
+          status: 'approved',
+          processedAt: new Date()
+        });
+        
+        // Log sender transaction
+        await addDoc(collection(db, 'transactions'), {
+          userId: request.userId,
+          username: request.username,
+          amount: -request.amount,
+          type: 'point_transfer_out',
+          description: `Transferred ${request.amount} points to ${request.recipientUsername}`,
+          timestamp: new Date(),
+          balanceAfter: {
+            points: newSenderPoints,
+            cash: senderData.cash || 0
+          }
+        });
+        
+        // Log recipient transaction
+        await addDoc(collection(db, 'transactions'), {
+          userId: request.recipientId,
+          username: request.recipientUsername,
+          amount: request.amount,
+          type: 'point_transfer_in',
+          description: `Received ${request.amount} points from ${request.username}`,
+          timestamp: new Date(),
+          balanceAfter: {
+            points: newRecipientPoints,
+            cash: recipientData.cash || 0
+          }
+        });
+        
+        setMessage(`Transfer of ${request.amount} points to ${request.recipientUsername} approved`);
+      } else {
+        // Decline the request
+        await updateDoc(doc(db, 'requests', request.id), {
+          status: 'declined',
+          processedAt: new Date()
+        });
+        
+        setMessage(`Transfer request declined`);
+      }
+    } catch (error) {
+      setError(`Failed to ${approve ? 'approve' : 'decline'} transfer request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(error);
+    } finally {
+      setIsProcessingTransfer(false);
+    }
+  };
+
   const filteredUsers = searchQuery
     ? vipUsers.filter(user => 
         user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -218,6 +353,46 @@ export function VIPAdmin({ setError, setMessage }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Point Transfer Requests */}
+      {transferRequests.length > 0 && (
+        <div className="rounded-lg bg-white p-6 shadow-lg">
+          <h2 className="mb-4 text-lg font-semibold flex items-center">
+            <SendHorizonal className="h-5 w-5 mr-2 text-green-500" />
+            Pending Point Transfers
+          </h2>
+          <div className="space-y-4">
+            {transferRequests.map((request) => (
+              <div key={request.id} className="flex items-center justify-between rounded-lg border bg-gray-50 p-4">
+                <div>
+                  <p className="font-medium">{request.username}</p>
+                  <p className="text-sm text-gray-600">
+                    Requesting to transfer {request.amount} points to {request.recipientUsername}
+                  </p>
+                  <p className="text-xs text-gray-500">{request.timestamp.toLocaleString()}</p>
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={() => handleTransferRequest(request, true)}
+                    disabled={isProcessingTransfer}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    onClick={() => handleTransferRequest(request, false)}
+                    disabled={isProcessingTransfer}
+                    variant="outline"
+                    className="border-red-500 text-red-600 hover:bg-red-50"
+                  >
+                    Decline
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* VIP Upgrade Requests */}
       {vipRequests.length > 0 && (
         <div className="rounded-lg bg-white p-6 shadow-lg">
