@@ -12,7 +12,7 @@ import {
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Check, X, Dice1, MessageSquare, Trophy } from 'lucide-react';
+import { Check, X, Dice1, MessageSquare, Trophy, RotateCcw } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 
 interface UltraManualAdminProps {
@@ -26,7 +26,7 @@ interface UltraManualBet {
   username: string;
   amount: number;
   note: string;
-  status: 'pending' | 'won' | 'lost';
+  status: 'pending' | 'won' | 'lost' | 'cancelled';
   createdAt: Date;
   processedAt?: Date;
   winAmount?: number;
@@ -37,6 +37,7 @@ export function UltraManualAdmin({ setError, setMessage }: UltraManualAdminProps
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedBet, setSelectedBet] = useState<UltraManualBet | null>(null);
   const [isWinDialogOpen, setIsWinDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [winAmount, setWinAmount] = useState('');
 
   useEffect(() => {
@@ -78,6 +79,60 @@ export function UltraManualAdmin({ setError, setMessage }: UltraManualAdminProps
     }
 
     processBet(bet, false);
+  };
+
+  const handleCancelBet = (betId: string) => {
+    const bet = bets.find(b => b.id === betId);
+    if (!bet) {
+      setError('Bet not found');
+      return;
+    }
+
+    setSelectedBet(bet);
+    setIsCancelDialogOpen(true);
+  };
+
+  const cancelBet = async (bet: UltraManualBet) => {
+    setIsProcessing(true);
+    
+    try {
+      const batch = writeBatch(db);
+      const betRef = doc(db, 'ultraManualBets', bet.id);
+      const userRef = doc(db, 'users', bet.userId);
+      
+      // Update bet status to cancelled
+      batch.update(betRef, {
+        status: 'cancelled',
+        processedAt: new Date()
+      });
+      
+      // Return the bet amount to the user
+      batch.update(userRef, {
+        points: increment(bet.amount)
+      });
+      
+      // Create transaction record for the refund
+      const transactionRef = collection(db, 'transactions');
+      const transactionDoc = {
+        userId: bet.userId,
+        username: bet.username,
+        amount: bet.amount,
+        type: 'ultra_manual_cancelled',
+        description: `Ultra Manual Game bet cancelled: ${bet.amount} points returned`,
+        timestamp: new Date()
+      };
+      
+      batch.set(doc(transactionRef), transactionDoc);
+      
+      await batch.commit();
+      
+      setMessage(`Bet cancelled and ${bet.amount} points returned to ${bet.username}`);
+      setIsCancelDialogOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel bet');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const processBet = async (bet: UltraManualBet, isWin: boolean, winAmount?: number) => {
@@ -202,6 +257,14 @@ export function UltraManualAdmin({ setError, setMessage }: UltraManualAdminProps
                           >
                             <X className="h-4 w-4" />
                           </Button>
+                          <Button
+                            onClick={() => handleCancelBet(bet.id)}
+                            disabled={isProcessing}
+                            className="h-8 bg-gray-600 hover:bg-gray-700"
+                            title="Cancel and Return Points"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -278,6 +341,47 @@ export function UltraManualAdmin({ setError, setMessage }: UltraManualAdminProps
                   className="bg-green-600 hover:bg-green-700"
                 >
                   {isProcessing ? 'Processing...' : 'Confirm Win'}
+                </Button>
+              </div>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Cancel Dialog */}
+      <Dialog.Root open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-[9999]" />
+          <Dialog.Content className="fixed left-[50%] top-[50%] max-h-[85vh] w-[90vw] max-w-[500px] translate-x-[-50%] translate-y-[-50%] rounded-lg bg-white p-6 shadow-lg z-[10000]">
+            <Dialog.Title className="text-xl font-semibold">
+              Cancel Bet and Return Points
+            </Dialog.Title>
+            
+            <div className="mt-4 space-y-4">
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="text-sm text-gray-800">
+                  Are you sure you want to cancel the bet from <span className="font-medium">{selectedBet?.username}</span> and return <span className="font-medium">{selectedBet?.amount} FBT</span> points?
+                </p>
+                {selectedBet?.note && (
+                  <p className="mt-1 text-xs text-gray-600">
+                    Note: {selectedBet.note}
+                  </p>
+                )}
+              </div>
+              
+              <div className="mt-6 flex justify-end space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCancelDialogOpen(false)}
+                >
+                  No, Keep Bet
+                </Button>
+                <Button
+                  onClick={() => selectedBet && cancelBet(selectedBet)}
+                  disabled={isProcessing}
+                  className="bg-gray-600 hover:bg-gray-700"
+                >
+                  {isProcessing ? 'Processing...' : 'Yes, Cancel and Return Points'}
                 </Button>
               </div>
             </div>

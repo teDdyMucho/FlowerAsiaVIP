@@ -42,6 +42,11 @@ export function UltraManualGame({ setError, setMessage }: UltraManualGameProps) 
       return;
     }
 
+    if (!note.trim()) {
+      setError('Please add a note for your bet');
+      return;
+    }
+
     if (note.length > 100) {
       setError('Note must be 100 characters or less');
       return;
@@ -111,7 +116,7 @@ export function UltraManualGame({ setError, setMessage }: UltraManualGameProps) 
           </p>
           <ul className="list-inside list-disc space-y-2 text-white/90">
             <li>Enter any amount of points to bet</li>
-            <li>Add a note (optional, max 100 characters)</li>
+            <li>Add a note (required, max 100 characters)</li>
             <li>Admin will review your bet and determine if you win or lose</li>
             <li>If you win, your winnings will be added to your account</li>
           </ul>
@@ -147,7 +152,7 @@ export function UltraManualGame({ setError, setMessage }: UltraManualGameProps) 
           
           <div>
             <label htmlFor="note" className="block text-sm font-medium text-gray-700">
-              Note (Optional, max 100 characters)
+              Note (Required, max 100 characters)
             </label>
             <div className="mt-1 flex items-center">
               <MessageSquare className="mr-2 h-5 w-5 text-gray-400" />
@@ -159,6 +164,7 @@ export function UltraManualGame({ setError, setMessage }: UltraManualGameProps) 
                 placeholder="Add a note for the admin"
                 maxLength={100}
                 className="flex-1"
+                required
               />
             </div>
             <p className="mt-1 text-sm text-gray-500">
@@ -168,7 +174,7 @@ export function UltraManualGame({ setError, setMessage }: UltraManualGameProps) 
           
           <Button
             type="submit"
-            disabled={isSubmitting || !amount || parseInt(amount) <= 0 || parseInt(amount) > (user?.points || 0)}
+            disabled={isSubmitting || !amount || parseInt(amount) <= 0 || parseInt(amount) > (user?.points || 0) || !note.trim()}
             className="w-full bg-purple-600 hover:bg-purple-700"
           >
             {isSubmitting ? 'Processing...' : 'Place Bet'}
